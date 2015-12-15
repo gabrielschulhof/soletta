@@ -5,17 +5,11 @@
 using namespace v8;
 
 #include "main.h"
-#include <enums.h>
 
 #define SET_FUNCTION(destination, functionName)                              \
   Nan::ForceSet((destination), Nan::New(#functionName).ToLocalChecked(),     \
                 Nan::GetFunction(Nan::New<FunctionTemplate>(                 \
                                      bind_##functionName)).ToLocalChecked(), \
                 (v8::PropertyAttribute)(v8::DontDelete));
-
-#define SET_ENUM(destination, enumName) \
-  Local<Object> js_##enumName = Nan::New<Object>(); \
-  Nan::ForceSet((destination), Nan::New(#enumName).ToLocalChecked(), \
-                js_##enumName);
 
 void Init(Handle<Object> exports, Handle<Object> module) {
