@@ -20,6 +20,18 @@ include $(top_srcdir)tools/build/Makefile.vars
 
 include $(top_srcdir)tools/build/Makefile.common
 
+ifneq ($(NODE_BINDINGS),)
+
+bindings-out += node_bindings
+
+node_bindings: $(SOL_LIB_OUTPUT)
+	SOLETTA_FROM_MAKE=true npm install
+	touch build_node.stamp
+
+PHONY += node_bindings
+
+endif
+
 # kconfig interface rules
 ifeq (help, $(filter help,$(MAKECMDGOALS)))
 help: soletta_help
@@ -48,21 +60,10 @@ include $(top_srcdir)tools/build/Makefile.rules
 
 include $(top_srcdir)tools/build/Makefile.targets
 
-default_target: $(PRE_GEN) $(SOL_LIB_OUTPUT) $(bins-out) $(modules-out) build_node.stamp
+default_target: $(PRE_GEN) $(SOL_LIB_OUTPUT) $(bins-out) $(modules-out) $(bindings-out)
 all: default_target
 endif # HAVE_KCONFIG_CONFIG
 endif # NOT_FOUND
-
-ifeq ($(NODE_BINDINGS),)
-build_node.stamp: $(SOL_LIB_OUTPUT)
-	touch build_node.stamp
-else
-build_node.stamp: $(SOL_LIB_OUTPUT)
-	SOLETTA_FROM_MAKE=true npm install
-	touch build_node.stamp
-endif
-
-
 
 $(KCONFIG_CONFIG): $(KCONFIG_GEN)
 
