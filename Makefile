@@ -22,7 +22,7 @@ include $(top_srcdir)tools/build/Makefile.common
 
 ifneq ($(NODE_BINDINGS),)
 
-bindings-out += node_bindings
+bins-out += node_bindings
 
 node_bindings: $(SOL_LIB_OUTPUT)
 	SOLETTA_FROM_MAKE=true npm install
@@ -60,7 +60,7 @@ include $(top_srcdir)tools/build/Makefile.rules
 
 include $(top_srcdir)tools/build/Makefile.targets
 
-default_target: $(PRE_GEN) $(SOL_LIB_OUTPUT) $(bins-out) $(modules-out) $(bindings-out)
+default_target: $(PRE_GEN) $(SOL_LIB_OUTPUT) $(bins-out) $(modules-out)
 all: default_target
 endif # HAVE_KCONFIG_CONFIG
 endif # NOT_FOUND
