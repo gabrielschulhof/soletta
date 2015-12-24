@@ -5,11 +5,6 @@
 using namespace v8;
 
 #include "main.h"
-
-#define SET_FUNCTION(destination, functionName)                              \
-  Nan::ForceSet((destination), Nan::New(#functionName).ToLocalChecked(),     \
-                Nan::GetFunction(Nan::New<FunctionTemplate>(                 \
-                                     bind_##functionName)).ToLocalChecked(), \
-                (v8::PropertyAttribute)(v8::DontDelete));
+#include "../src/common.h"
 
 void Init(Handle<Object> exports, Handle<Object> module) {
