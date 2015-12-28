@@ -34,8 +34,84 @@ if test "x${V}x" != "xx"; then
 	set -x
 fi
 
+SOLETTA_SEARCH_PATHS=$(echo -n "$@" | node -e '
+	process.stdin.on( "data", function( data ) {
+		data = "" + data;
+		data.split( " " ).forEach( function( item ) {
+			if ( item.substr(0, 1) ) {
+				console.log( item.substr(2) );
+			}
+		} );
+	} );
+')
+
 cat generated/main.cc.prologue > generated/main.cc || exit 1
 cat generated/main.h.prologue > generated/main.h || exit 1
+
+# Add constants and enums from selected files
+FILES=\
+'sol-platform.h'
+
+for file in $FILES; do
+	echo "#include <$file>" >> generated/main.h
+	for path in $SOLETTA_SEARCH_PATHS; do
+		if test -f $path/$file; then
+			cat $path/$file | awk '
+				BEGIN {
+					enum_name = "";
+					inside_enum = 0;
+					new_enum = 0;
+					last_line_was_blank=0;
+				}
+				/^#define/ {
+					if ( NF > 2 ) {
+
+						# Skip this constant (see gh-1234)
+						if ( $2 != "CHUNK_MAX_TIME_NS" ) {
+							print "  SET_CONSTANT_" ( ( substr($3, 1, 1) == "\"" ) ? "STRING": "NUMBER" ) "(exports, " $2 ");" >> "generated/main.cc"
+							last_line_was_blank = 0;
+						}
+					}
+				}
+				/^enum\s+[^{]*{$/ {
+					enum_name = $2;
+					inside_enum = 1;
+					new_enum = 1;
+					if ( last_line_was_blank == 0 ) {
+						print "" >> "generated/main.cc"
+					}
+					print "  Local<Object> bind_" enum_name " = Nan::New<Object>();" >> "generated/main.cc"
+					last_line_was_blank = 0;
+				}
+				/\s*}\s*;\s*$/ {
+					if ( inside_enum == 1 ) {
+						print "  SET_CONSTANT_OBJECT(exports, " enum_name ");" >> "generated/main.cc"
+						enum_name = "";
+						inside_enum = 0;
+						if ( last_line_was_blank == 0 ) {
+							print "" >> "generated/main.cc"
+							last_line_was_blank = 1;
+						}
+				}
+				}
+				{
+					if ( new_enum == 1 ) {
+						new_enum = 0;
+					}
+					else
+					if ( inside_enum == 1 ) {
+						enum_member = $1;
+						gsub( /,/, "", enum_member );
+						print "  SET_CONSTANT_NUMBER(bind_" enum_name ", " enum_member ");" >> "generated/main.cc"
+					}
+				}
+			'
+		fi
+	done
+done
+
+echo "" >> "generated/main.cc"
+echo "" >> "generated/main.h"
 
 # Add all the bound functions
 find src -type f | while read; do

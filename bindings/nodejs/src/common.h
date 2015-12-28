@@ -44,6 +44,16 @@
     Nan::New((name)),                                \
     (v8::PropertyAttribute)(v8::ReadOnly | v8::DontDelete));
 
+#define SET_CONSTANT_STRING(destination, name)                   \
+  Nan::ForceSet((destination), Nan::New(#name).ToLocalChecked(), \
+                Nan::New((name)).ToLocalChecked(),               \
+                (v8::PropertyAttribute)(v8::ReadOnly | v8::DontDelete));
+
+#define SET_CONSTANT_OBJECT(destination, name)                   \
+  Nan::ForceSet((destination), Nan::New(#name).ToLocalChecked(), \
+                bind_##name,                                     \
+                (v8::PropertyAttribute)(v8::ReadOnly | v8::DontDelete));
+
 #define VALIDATE_CALLBACK_RETURN_VALUE_TYPE(value, typecheck, message)        \
     if (!value->typecheck()) {                                                  \
         Nan::ThrowTypeError(                                                      \
