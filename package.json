@@ -16,7 +16,7 @@
     "bindings"
   ],
   "author": "",
-  "license": "BSD",
+  "license": "BSD-3-Clause",
   "bugs": {
     "url": "https://github.com/solettaproject/soletta/issues"
   },
