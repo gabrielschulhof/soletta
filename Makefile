@@ -26,7 +26,6 @@ bins-out += node_bindings
 
 node_bindings: $(SOL_LIB_OUTPUT)
 	SOLETTA_FROM_MAKE=true npm install
-	touch build_node.stamp
 
 PHONY += node_bindings
 
