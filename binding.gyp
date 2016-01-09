@@ -1,6 +1,11 @@
 {
+	"variables": {
+		"BUILD_SOLETTA": '<!(bindings/nodejs/establish-flags.sh BUILD_SOLETTA)',
+		"SOLETTA_CFLAGS": '<!(bindings/nodejs/establish-flags.sh SOLETTA_CFLAGS)',
+		"SOLETTA_LIBS": '<!(bindings/nodejs/establish-flags.sh SOLETTA_LIBS)'
+	},
 	"conditions": [
-		[ "'<!(echo $SOLETTA_FROM_MAKE)'!='true'", {
+		[ "'<(BUILD_SOLETTA)'=='true'", {
 			"targets+": [
 				{
 					"target_name": "csdk",
@@ -11,7 +16,7 @@
 						"outputs": [ "build/soletta_sysroot" ],
 						"inputs": [ "" ],
 						"action": [ "sh", "-c",
-							"unset PYTHON && unset PYTHON_PATH && make alldefconfig && make -j9"
+							"unset PYTHON && unset PYTHON_PATH && make alldefconfig && make"
 						]
 					} ]
 				}
@@ -30,12 +35,12 @@
 					"bindings/nodejs/generated/main.cc.prologue",
 					"bindings/nodejs/generated/main.cc.epilogue",
 				],
-				"action": [ "sh", "-c", "cd ./bindings/nodejs && ./generate-main.sh" ]
+				"action": [ "sh", "-c", "cd ./bindings/nodejs && ./generate-main.sh <(SOLETTA_CFLAGS)" ]
 			} ],
 
-			# Ensure that soletta is built first if the build process starts with npm install
+			# Ensure that soletta is built first if it needs to be built at all
 			"conditions": [
-				[ "'<!(echo $SOLETTA_FROM_MAKE)'!='true'", {
+				[ "'<(BUILD_SOLETTA)'=='true'", {
 					"dependencies": [ "csdk" ]
 				} ]
 			]
@@ -47,21 +52,14 @@
 				"bindings/nodejs/src/functions/simple.cc"
 			],
 			"include_dirs": [
-				"<!(node -e \"require('nan')\")",
-				"build/soletta_sysroot/usr/include/soletta"
+				"<!(node -e \"require('nan')\")"
 			],
-			"libraries": [
-				'<!@(echo "-L$(pwd)/build/soletta_sysroot/usr/lib")',
-				"-lsoletta"
-			],
+			"cflags": [ '<(SOLETTA_CFLAGS)' ],
+			"xcode_settings": {
+				"OTHER_CFLAGS": [ '<SOLETTA_CFLAGS)' ]
+			},
+			"libraries": [ '<(SOLETTA_LIBS)' ],
 			"dependencies": [ "collectbindings" ]
-		},
-		{
-			"target_name": "dlfcn",
-			"sources": [ "bindings/nodejs/dlfcn/dlfcn.cc" ],
-			"include_dirs": [
-				"<!(node -e \"require('nan')\")",
-			]
 		}
 	]
 }
