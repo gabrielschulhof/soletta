@@ -1,6 +1,7 @@
 #include <v8.h>
 #include <node.h>
 #include <nan.h>
+#include <sol-mainloop.h>
 
 using namespace v8;
 
@@ -8,3 +9,4 @@ using namespace v8;
 #include "../src/common.h"
 
 void Init(Handle<Object> exports, Handle<Object> module) {
+  sol_init();

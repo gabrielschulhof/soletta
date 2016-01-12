@@ -1,6 +1,7 @@
 #include <nan.h>
 #include "../data.h"
 #include "../common.h"
+#include "../hijack.h"
 
 #include <sol-platform.h>
 
@@ -28,6 +29,7 @@ NAN_METHOD(bind_sol_platform_add_hostname_monitor) {
 			(PropertyAttribute)(DontDelete | DontEnum | ReadOnly));
 	}
 	info.GetReturnValue().Set(Nan::New(result));
+	hijack_ref();
 }
 
 NAN_METHOD(bind_sol_platform_del_hostname_monitor) {
@@ -45,5 +47,6 @@ NAN_METHOD(bind_sol_platform_del_hostname_monitor) {
 			delete jsCallback;
 		}
 		info.GetReturnValue().Set(Nan::New(result));
+		hijack_unref();
 	}
 }
