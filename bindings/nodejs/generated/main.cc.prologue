@@ -1,10 +1,21 @@
 #include <v8.h>
 #include <node.h>
 #include <nan.h>
+#include <uv.h>
+#include <sol-mainloop.h>
 
 using namespace v8;
 
 #include "main.h"
 #include "../src/common.h"
 
+void sol_thread_entry_point(void *nothing) {
+	sol_init();
+	sol_run();
+}
+
 void Init(Handle<Object> exports, Handle<Object> module) {
+  uv_thread_t sol_thread;
+  uv_thread_create(&sol_thread, sol_thread_entry_point, NULL);
+
+  // Generated stuff below here

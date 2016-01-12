@@ -1,3 +1,4 @@
+#include <string.h>
 #include <nan.h>
 #include "../data.h"
 #include "../common.h"
@@ -6,25 +7,75 @@
 
 using namespace v8;
 
-void defaultHostnameMonitor(void *data, const char *hostname) {
+static void defaultHostnameMonitor_node(uv_async_t *handle);
+
+typedef struct {
+	uv_async_t base;
+	Nan::Callback *jsCallback;
+	char *hostname;
+} uv_async_hostname_monitor_t;
+
+static uv_async_hostname_monitor_t *uv_async_hostname_monitor_new(Nan::Callback *jsCallback, char *hostname) {
+	uv_async_hostname_monitor_t *monitor =
+		(uv_async_hostname_monitor_t *)malloc(sizeof(uv_async_hostname_monitor_t));
+	if (monitor) {
+		uv_async_init(uv_default_loop(), (uv_async_t *)monitor, defaultHostnameMonitor_node);
+		monitor->jsCallback = jsCallback;
+		monitor->hostname = hostname;
+	}
+	return monitor;
+}
+
+static void uv_async_hostname_monitor_free(uv_async_hostname_monitor_t *monitor) {
+	if (monitor) {
+		if (monitor->hostname) {
+			free(monitor->hostname);
+		}
+		if (monitor->jsCallback) {
+			delete monitor->jsCallback;
+		}
+		uv_close((uv_handle_t *)monitor, NULL);
+		free(monitor);
+	}
+}
+
+// This function is called from the libuv main loop via uv_async_send(). Call the JS callback with
+// the new hostname then free the hostname, because it was allocated on the soletta thread.
+static void defaultHostnameMonitor_node(uv_async_t *handle) {
+	uv_async_hostname_monitor_t *monitor = (uv_async_hostname_monitor_t *)handle;
 	Nan::HandleScope scope;
-	Local<Value> jsCallbackArguments[1] = {Nan::New(hostname).ToLocalChecked()};
-	((Nan::Callback *)data)->Call(1, jsCallbackArguments);
+	Local<Value> jsCallbackArguments[1] = {Nan::New(monitor->hostname).ToLocalChecked()};
+	monitor->jsCallback->Call(1, jsCallbackArguments);
+	free(monitor->hostname);
+	monitor->hostname = NULL;
+}
+
+// This function is called from the soletta thread. Copy the hostname to the async structure and
+// wake the node main loop.
+static void defaultHostnameMonitor_soletta(void *data, const char *hostname) {
+	uv_async_hostname_monitor_t *monitor = (uv_async_hostname_monitor_t *)data;
+	monitor->hostname = strdup(hostname);
+	uv_async_send((uv_async_t *)monitor);
 }
 
 NAN_METHOD(bind_sol_platform_add_hostname_monitor) {
 	VALIDATE_ARGUMENT_COUNT(info, 1);
 	VALIDATE_ARGUMENT_TYPE(info, 0, IsFunction);
 
-	Nan::Callback *jsCallback = new Nan::Callback(Local<Function>::Cast(info[0]));
+	uv_async_hostname_monitor_t *monitor = uv_async_hostname_monitor_new(
+		new Nan::Callback(Local<Function>::Cast(info[0])), NULL);
+	if (!monitor) {
+		Nan::ThrowError("Unable to add hostname monitor");
+		return;
+	}
 
-	int result = sol_platform_add_hostname_monitor(defaultHostnameMonitor, jsCallback);
+	int result = sol_platform_add_hostname_monitor(defaultHostnameMonitor_soletta, monitor);
 
 	if (result) {
-		delete jsCallback;
+		uv_async_hostname_monitor_free(monitor);
 	} else {
-		Nan::ForceSet(info[0]->ToObject(), Nan::New("_callback").ToLocalChecked(),
-			jsArrayFromBytes((unsigned char *)&jsCallback, sizeof(Nan::Callback *)),
+		Nan::ForceSet(info[0]->ToObject(), Nan::New("_monitor").ToLocalChecked(),
+			jsArrayFromBytes((unsigned char *)&monitor, sizeof(uv_async_hostname_monitor_t *)),
 			(PropertyAttribute)(DontDelete | DontEnum | ReadOnly));
 	}
 	info.GetReturnValue().Set(Nan::New(result));
@@ -34,15 +85,25 @@ NAN_METHOD(bind_sol_platform_del_hostname_monitor) {
 	VALIDATE_ARGUMENT_COUNT(info, 1);
 	VALIDATE_ARGUMENT_TYPE(info, 0, IsFunction);
 
-	Nan::Callback *jsCallback = 0;
-	if (fillCArrayFromJSArray((unsigned char *)&jsCallback,
-			sizeof(Nan::Callback *),
-			Local<Array>::Cast(Nan::Get(info[0]->ToObject(),
-				Nan::New("_callback").ToLocalChecked()).ToLocalChecked()))) {
+	Local<String> propertyName = Nan::New("_monitor").ToLocalChecked();
+	Local<Object> jsCallbackAsObject = info[0]->ToObject();
 
-		int result = sol_platform_del_hostname_monitor(defaultHostnameMonitor, jsCallback);
-		if (!result) {
-			delete jsCallback;
+	if (Nan::Has(jsCallbackAsObject, propertyName).FromMaybe(false)) {
+		return;
+	}
+
+	uv_async_hostname_monitor_t *monitor = 0;
+	if (fillCArrayFromJSArray((unsigned char *)&monitor,
+			sizeof(uv_async_hostname_monitor_t *),
+			Local<Array>::Cast(Nan::Get(jsCallbackAsObject, propertyName).ToLocalChecked()))) {
+
+		int result = sol_platform_del_hostname_monitor(defaultHostnameMonitor_soletta, monitor);
+		if (result) {
+			Nan::ThrowError("Failed to remove hostname monitor");
+			return;
+		} else {
+			uv_async_hostname_monitor_free(monitor);
+			Nan::Delete(jsCallbackAsObject, propertyName);
 		}
 		info.GetReturnValue().Set(Nan::New(result));
 	}
