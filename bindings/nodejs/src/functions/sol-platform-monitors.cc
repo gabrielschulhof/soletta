@@ -10,29 +10,29 @@ using namespace v8;
 
 extern uv_rwlock_t big_giant_lock;
 
-#define SINGLE_STRING_BINDING_ADD(name) \
+#define MONITOR_BINDING_ADD(name, signature, callback_cast) \
 	VALIDATE_ARGUMENT_COUNT(info, 1); \
 	VALIDATE_ARGUMENT_TYPE(info, 0, IsFunction); \
 \
-	uv_async_single_string_monitor_t *monitor = uv_async_single_string_monitor_new( \
-		new Nan::Callback(Local<Function>::Cast(info[0])), NULL); \
+	uv_async_##signature##_monitor_t *monitor = uv_async_##signature##_monitor_new( \
+		new Nan::Callback(Local<Function>::Cast(info[0]))); \
 	if (!monitor) { \
 		Nan::ThrowError("Unable to add " #name " monitor"); \
 		return; \
 	} \
 \
-	int result = sol_platform_add_##name##_monitor(monitor->soletta_callback, monitor); \
+	int result = sol_platform_add_##name##_monitor((callback_cast)(monitor->soletta_callback), monitor); \
 \
 	if (result) { \
-		uv_close((uv_handle_t *)monitor, (void(*)(uv_handle_t *))uv_async_single_string_monitor_free); \
+		uv_close((uv_handle_t *)monitor, (void(*)(uv_handle_t *))uv_async_##signature##_monitor_free); \
 	} else { \
 		Nan::ForceSet(info[0]->ToObject(), Nan::New("_monitor").ToLocalChecked(), \
-			jsArrayFromBytes((unsigned char *)&monitor, sizeof(uv_async_single_string_monitor_t *)), \
+			jsArrayFromBytes((unsigned char *)&monitor, sizeof(uv_async_##signature##_monitor_t *)), \
 			(PropertyAttribute)(DontDelete | DontEnum | ReadOnly)); \
 	} \
 	info.GetReturnValue().Set(Nan::New(result));
 
-#define SINGLE_STRING_BINDING_DEL(name) \
+#define MONITOR_BINDING_DEL(name, signature) \
 	VALIDATE_ARGUMENT_COUNT(info, 1); \
 	VALIDATE_ARGUMENT_TYPE(info, 0, IsFunction); \
 \
@@ -43,9 +43,9 @@ extern uv_rwlock_t big_giant_lock;
 		return; \
 	} \
 \
-	uv_async_single_string_monitor_t *monitor = 0; \
+	uv_async_##signature##_monitor_t *monitor = 0; \
 	if (fillCArrayFromJSArray((unsigned char *)&monitor, \
-			sizeof(uv_async_single_string_monitor_t *), \
+			sizeof(uv_async_##signature##_monitor_t *), \
 			Local<Array>::Cast(Nan::Get(jsCallbackAsObject, propertyName).ToLocalChecked()))) { \
 \
 		int result = sol_platform_del_##name##_monitor(monitor->soletta_callback, monitor); \
@@ -53,24 +53,26 @@ extern uv_rwlock_t big_giant_lock;
 			Nan::ThrowError("Failed to remove " #name " monitor"); \
 			return; \
 		} else { \
-			uv_close((uv_handle_t *)monitor, (void (*)(uv_handle_t *))uv_async_single_string_monitor_free); \
+			uv_close((uv_handle_t *)monitor, (void (*)(uv_handle_t *))uv_async_##signature##_monitor_free); \
 			Nan::Delete(jsCallbackAsObject, propertyName); \
 		} \
 		info.GetReturnValue().Set(Nan::New(result)); \
 	}
 
 NAN_METHOD(bind_sol_platform_add_hostname_monitor) {
-	SINGLE_STRING_BINDING_ADD(hostname);
+	MONITOR_BINDING_ADD(hostname, string,
+		void(*)(void *data, const char *));
 }
 
 NAN_METHOD(bind_sol_platform_del_hostname_monitor) {
-	SINGLE_STRING_BINDING_DEL(hostname);
+	MONITOR_BINDING_DEL(hostname, string);
 }
 
 NAN_METHOD(bind_sol_platform_add_timezone_monitor) {
-	SINGLE_STRING_BINDING_ADD(timezone);
+	MONITOR_BINDING_ADD(timezone, string,
+		void(*)(void *data, const char *));
 }
 
 NAN_METHOD(bind_sol_platform_del_timezone_monitor) {
-	SINGLE_STRING_BINDING_DEL(timezone);
+	MONITOR_BINDING_DEL(timezone, string);
 }
