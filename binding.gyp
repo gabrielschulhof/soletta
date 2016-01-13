@@ -15,8 +15,10 @@
 						"message": "Building C SDK",
 						"outputs": [ "build/soletta_sysroot" ],
 						"inputs": [ "" ],
-						"action": [ "sh", "-c",
-							"unset PYTHON && unset PYTHON_PATH && make alldefconfig && make"
+						"action": [
+							"sh",
+							"bindings/nodejs/build-csdk.sh",
+							'<!@(if test "x${npm_config_debug}x" == "xtruex"; then echo "--debug"; else echo ""; fi)'
 						]
 					} ]
 				}
