@@ -11,6 +11,7 @@ static void defaultHostnameMonitor_node(uv_async_t *handle);
 
 typedef struct {
 	uv_async_t base;
+	uv_rwlock_t lock;
 	Nan::Callback *jsCallback;
 	char *hostname;
 } uv_async_hostname_monitor_t;
@@ -20,6 +21,7 @@ static uv_async_hostname_monitor_t *uv_async_hostname_monitor_new(Nan::Callback 
 		(uv_async_hostname_monitor_t *)malloc(sizeof(uv_async_hostname_monitor_t));
 	if (monitor) {
 		uv_async_init(uv_default_loop(), (uv_async_t *)monitor, defaultHostnameMonitor_node);
+		uv_rwlock_init(&(monitor->lock));
 		monitor->jsCallback = jsCallback;
 		monitor->hostname = hostname;
 	}
@@ -34,8 +36,8 @@ static void uv_async_hostname_monitor_free(uv_async_hostname_monitor_t *monitor)
 		if (monitor->jsCallback) {
 			delete monitor->jsCallback;
 		}
-		uv_close((uv_handle_t *)monitor, NULL);
-		free(monitor);
+		uv_rwlock_destroy(&(monitor->lock));
+		uv_close((uv_handle_t *)monitor, (uv_close_cb)free);
 	}
 }
 
@@ -44,17 +46,26 @@ static void uv_async_hostname_monitor_free(uv_async_hostname_monitor_t *monitor)
 static void defaultHostnameMonitor_node(uv_async_t *handle) {
 	uv_async_hostname_monitor_t *monitor = (uv_async_hostname_monitor_t *)handle;
 	Nan::HandleScope scope;
+
+	uv_rwlock_rdlock(&(monitor->lock));
 	Local<Value> jsCallbackArguments[1] = {Nan::New(monitor->hostname).ToLocalChecked()};
+	uv_rwlock_rdunlock(&(monitor->lock));
+
 	monitor->jsCallback->Call(1, jsCallbackArguments);
-	free(monitor->hostname);
-	monitor->hostname = NULL;
 }
 
 // This function is called from the soletta thread. Copy the hostname to the async structure and
 // wake the node main loop.
 static void defaultHostnameMonitor_soletta(void *data, const char *hostname) {
 	uv_async_hostname_monitor_t *monitor = (uv_async_hostname_monitor_t *)data;
+
+	uv_rwlock_wrlock(&(monitor->lock));
+	if (monitor->hostname) {
+		free(monitor->hostname);
+	}
 	monitor->hostname = strdup(hostname);
+	uv_rwlock_wrunlock(&(monitor->lock));
+
 	uv_async_send((uv_async_t *)monitor);
 }
 
@@ -88,7 +99,7 @@ NAN_METHOD(bind_sol_platform_del_hostname_monitor) {
 	Local<String> propertyName = Nan::New("_monitor").ToLocalChecked();
 	Local<Object> jsCallbackAsObject = info[0]->ToObject();
 
-	if (Nan::Has(jsCallbackAsObject, propertyName).FromMaybe(false)) {
+	if (Nan::Has(jsCallbackAsObject, propertyName) == Nan::Just(false)) {
 		return;
 	}
 
