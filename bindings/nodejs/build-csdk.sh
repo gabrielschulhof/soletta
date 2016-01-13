@@ -30,32 +30,35 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# By default, build soletta using defaults
-SOLETTA_CFLAGS="-I$(pwd)/build/soletta_sysroot/usr/include/soletta"
-SOLETTA_LIBS="-L$(pwd)/build/soletta_sysroot/usr/lib -lsoletta -Wl,-rpath $(pwd)/build/soletta_sysroot/usr/lib"
-BUILD_SOLETTA="true"
-
-# If we're running from soletta's build process, establish the prefix, use
-# local include files, and link with no rpath
-if test "x${SOLETTA_FROM_MAKE}x" == "xtruex"; then
-	PREFIX="$(cat .config | grep '^PREFIX=' | sed -r 's/^[^"]*"([^"]*)"/\1/')"
-	PREFIX="${PREFIX##/}"
-
-	SOLETTA_CFLAGS="-I$(pwd)/build/soletta_sysroot/${PREFIX}/include/soletta"
-	SOLETTA_LIBS="-L $(pwd)/build/soletta_sysroot/${PREFIX}/lib -lsoletta"
-	BUILD_SOLETTA="false"
-
-# Otherwise, try to find soletta via pkg-config
-elif pkg-config --exists soletta > /dev/null 2>&1; then
-	SOLETTA_CFLAGS="$(pkg-config --cflags soletta)"
-	SOLETTA_LIBS="$(pkg-config --libs soletta)"
-	BUILD_SOLETTA="false"
+if test "x${V}x" != "xx"; then
+	set -x
 fi
 
-if test "x${1}x" == "xBUILD_SOLETTAx"; then
-	echo "${BUILD_SOLETTA}"
-elif test "x${1}x" == "xSOLETTA_CFLAGSx"; then
-	echo "${SOLETTA_CFLAGS}"
-elif test "x${1}x" == "xSOLETTA_LIBSx"; then
-	echo "${SOLETTA_LIBS}"
+DO_DEBUG=false
+
+while test $# -gt 0; do
+	if test "x$1x" = "x--debugx" -o "x$1x" = "x-dx"; then
+		DO_DEBUG=true
+	elif test "x$1x" = "x--helpx" -o "x$1x" = "x-hx"; then
+		echo "$( basename "$0" ) [options...]"
+		echo ""
+		echo "Possible options:"
+		echo "--debug or -d : Build in debug mode"
+		exit 0
+	fi
+	shift
+done
+
+unset PYTHON || exit 1
+unset PYTHON_PATH || exit 1
+make alldefconfig || exit 1
+if test "x${DO_DEBUG}x" == "xtruex"; then
+	( cat .config | awk '{
+		if ( $0 ~ /^CONFIG_CFLAGS=/ ) {
+			print( "CONFIG_CFLAGS=\"-g -Wall -O0\"" );
+		} else {
+			print;
+		}
+	}' > .config.new && mv .config.new .config ) || exit 1
 fi
+make || exit 1
