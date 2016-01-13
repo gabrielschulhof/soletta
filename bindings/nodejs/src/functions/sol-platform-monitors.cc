@@ -7,11 +7,12 @@
 
 using namespace v8;
 
+extern uv_rwlock_t big_giant_lock;
+
 static void defaultHostnameMonitor_node(uv_async_t *handle);
 
 typedef struct {
 	uv_async_t base;
-	uv_rwlock_t lock;
 	Nan::Callback *jsCallback;
 	char *hostname;
 } uv_async_hostname_monitor_t;
@@ -21,7 +22,6 @@ static uv_async_hostname_monitor_t *uv_async_hostname_monitor_new(Nan::Callback 
 		(uv_async_hostname_monitor_t *)malloc(sizeof(uv_async_hostname_monitor_t));
 	if (monitor) {
 		uv_async_init(uv_default_loop(), (uv_async_t *)monitor, defaultHostnameMonitor_node);
-		uv_rwlock_init(&(monitor->lock));
 		monitor->jsCallback = jsCallback;
 		monitor->hostname = hostname;
 	}
@@ -36,7 +36,6 @@ static void uv_async_hostname_monitor_free(uv_async_hostname_monitor_t *monitor)
 		if (monitor->jsCallback) {
 			delete monitor->jsCallback;
 		}
-		uv_rwlock_destroy(&(monitor->lock));
 		free(monitor);
 	}
 }
@@ -47,9 +46,9 @@ static void defaultHostnameMonitor_node(uv_async_t *handle) {
 	uv_async_hostname_monitor_t *monitor = (uv_async_hostname_monitor_t *)handle;
 	Nan::HandleScope scope;
 
-	uv_rwlock_rdlock(&(monitor->lock));
+	uv_rwlock_rdlock(&big_giant_lock);
 	Local<Value> jsCallbackArguments[1] = {Nan::New(monitor->hostname).ToLocalChecked()};
-	uv_rwlock_rdunlock(&(monitor->lock));
+	uv_rwlock_rdunlock(&big_giant_lock);
 
 	monitor->jsCallback->Call(1, jsCallbackArguments);
 }
@@ -59,12 +58,12 @@ static void defaultHostnameMonitor_node(uv_async_t *handle) {
 static void defaultHostnameMonitor_soletta(void *data, const char *hostname) {
 	uv_async_hostname_monitor_t *monitor = (uv_async_hostname_monitor_t *)data;
 
-	uv_rwlock_wrlock(&(monitor->lock));
+	uv_rwlock_wrlock(&big_giant_lock);
 	if (monitor->hostname) {
 		free(monitor->hostname);
 	}
 	monitor->hostname = strdup(hostname);
-	uv_rwlock_wrunlock(&(monitor->lock));
+	uv_rwlock_wrunlock(&big_giant_lock);
 
 	uv_async_send((uv_async_t *)monitor);
 }
