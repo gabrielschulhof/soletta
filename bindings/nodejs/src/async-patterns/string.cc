@@ -7,7 +7,7 @@ extern uv_rwlock_t big_giant_lock;
 
 // This function is called from the libuv main loop via uv_async_send(). Call the JS callback with
 // the new string then free the string.
-static void defaultSingleStringMonitor_node(uv_async_t *handle) {
+static void defaultStringMonitor_node(uv_async_t *handle) {
 	uv_async_string_monitor_t *monitor = (uv_async_string_monitor_t *)handle;
 	Nan::HandleScope scope;
 
@@ -20,7 +20,7 @@ static void defaultSingleStringMonitor_node(uv_async_t *handle) {
 
 // This function is called from the soletta thread. Free an existing string if present. Copy the
 // new string to the async structure and wake the node main loop.
-static void defaultSingleStringMonitor_soletta(void *data, const char *the_string) {
+static void defaultStringMonitor_soletta(void *data, const char *the_string) {
 	uv_async_string_monitor_t *monitor = (uv_async_string_monitor_t *)data;
 
 	uv_rwlock_wrlock(&big_giant_lock);
@@ -38,9 +38,9 @@ uv_async_string_monitor_t *uv_async_string_monitor_new(Nan::Callback *jsCallback
 		(uv_async_string_monitor_t *)malloc(sizeof(uv_async_string_monitor_t));
 	if (monitor) {
 		memset((void *)monitor, 0, sizeof(uv_async_string_monitor_t));
-		uv_async_init(uv_default_loop(), (uv_async_t *)monitor, defaultSingleStringMonitor_node);
+		uv_async_init(uv_default_loop(), (uv_async_t *)monitor, defaultStringMonitor_node);
 		monitor->jsCallback = jsCallback;
-		monitor->soletta_callback = defaultSingleStringMonitor_soletta;
+		monitor->soletta_callback = defaultStringMonitor_soletta;
 	}
 	return monitor;
 }

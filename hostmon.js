@@ -19,3 +19,14 @@ function timezoneChangeHandler( timezone ) {
 }
 
 soletta.sol_platform_add_timezone_monitor( timezoneChangeHandler );
+
+function localeChangeHandler( category, locale ) {
+	console.log( "locale has changed. The new locale is: " +
+		JSON.stringify( { category: category, locale: locale } ) );
+
+	// This should cause node to quit but currently doesn't - there must be a libuv handle hanging
+	// on somewhere
+	soletta.sol_platform_del_locale_monitor( localeChangeHandler );
+}
+
+soletta.sol_platform_add_locale_monitor( localeChangeHandler );

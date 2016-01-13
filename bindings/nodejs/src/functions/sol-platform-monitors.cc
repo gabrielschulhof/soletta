@@ -5,6 +5,7 @@
 #include "../data.h"
 #include "../common.h"
 #include "../async-patterns/string.h"
+#include "../async-patterns/int-string.h"
 
 using namespace v8;
 
@@ -32,7 +33,7 @@ extern uv_rwlock_t big_giant_lock;
 	} \
 	info.GetReturnValue().Set(Nan::New(result));
 
-#define MONITOR_BINDING_DEL(name, signature) \
+#define MONITOR_BINDING_DEL(name, signature, callback_cast) \
 	VALIDATE_ARGUMENT_COUNT(info, 1); \
 	VALIDATE_ARGUMENT_TYPE(info, 0, IsFunction); \
 \
@@ -48,7 +49,7 @@ extern uv_rwlock_t big_giant_lock;
 			sizeof(uv_async_##signature##_monitor_t *), \
 			Local<Array>::Cast(Nan::Get(jsCallbackAsObject, propertyName).ToLocalChecked()))) { \
 \
-		int result = sol_platform_del_##name##_monitor(monitor->soletta_callback, monitor); \
+		int result = sol_platform_del_##name##_monitor((callback_cast)(monitor->soletta_callback), monitor); \
 		if (result) { \
 			Nan::ThrowError("Failed to remove " #name " monitor"); \
 			return; \
@@ -65,7 +66,8 @@ NAN_METHOD(bind_sol_platform_add_hostname_monitor) {
 }
 
 NAN_METHOD(bind_sol_platform_del_hostname_monitor) {
-	MONITOR_BINDING_DEL(hostname, string);
+	MONITOR_BINDING_DEL(hostname, string,
+		void(*)(void *data, const char *));
 }
 
 NAN_METHOD(bind_sol_platform_add_timezone_monitor) {
@@ -74,5 +76,16 @@ NAN_METHOD(bind_sol_platform_add_timezone_monitor) {
 }
 
 NAN_METHOD(bind_sol_platform_del_timezone_monitor) {
-	MONITOR_BINDING_DEL(timezone, string);
+	MONITOR_BINDING_DEL(timezone, string,
+		void(*)(void *data, const char *));
+}
+
+NAN_METHOD(bind_sol_platform_add_locale_monitor) {
+	MONITOR_BINDING_ADD(locale, int_string,
+		void(*)(void *, enum sol_platform_locale_category, const char *));
+}
+
+NAN_METHOD(bind_sol_platform_del_locale_monitor) {
+	MONITOR_BINDING_DEL(locale, int_string,
+		void(*)(void *, enum sol_platform_locale_category, const char *));
 }
