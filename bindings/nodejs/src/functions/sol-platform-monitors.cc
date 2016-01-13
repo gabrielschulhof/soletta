@@ -37,12 +37,12 @@ static void uv_async_hostname_monitor_free(uv_async_hostname_monitor_t *monitor)
 			delete monitor->jsCallback;
 		}
 		uv_rwlock_destroy(&(monitor->lock));
-		uv_close((uv_handle_t *)monitor, (uv_close_cb)free);
+		free(monitor);
 	}
 }
 
 // This function is called from the libuv main loop via uv_async_send(). Call the JS callback with
-// the new hostname then free the hostname, because it was allocated on the soletta thread.
+// the new hostname then free the hostname.
 static void defaultHostnameMonitor_node(uv_async_t *handle) {
 	uv_async_hostname_monitor_t *monitor = (uv_async_hostname_monitor_t *)handle;
 	Nan::HandleScope scope;
@@ -54,8 +54,8 @@ static void defaultHostnameMonitor_node(uv_async_t *handle) {
 	monitor->jsCallback->Call(1, jsCallbackArguments);
 }
 
-// This function is called from the soletta thread. Copy the hostname to the async structure and
-// wake the node main loop.
+// This function is called from the soletta thread. Free an existing hostname if present. Copy the
+// new hostname to the async structure and wake the node main loop.
 static void defaultHostnameMonitor_soletta(void *data, const char *hostname) {
 	uv_async_hostname_monitor_t *monitor = (uv_async_hostname_monitor_t *)data;
 
@@ -83,7 +83,7 @@ NAN_METHOD(bind_sol_platform_add_hostname_monitor) {
 	int result = sol_platform_add_hostname_monitor(defaultHostnameMonitor_soletta, monitor);
 
 	if (result) {
-		uv_async_hostname_monitor_free(monitor);
+		uv_close((uv_handle_t *)monitor, (void (*)(uv_handle_t *))uv_async_hostname_monitor_free);
 	} else {
 		Nan::ForceSet(info[0]->ToObject(), Nan::New("_monitor").ToLocalChecked(),
 			jsArrayFromBytes((unsigned char *)&monitor, sizeof(uv_async_hostname_monitor_t *)),
@@ -113,7 +113,7 @@ NAN_METHOD(bind_sol_platform_del_hostname_monitor) {
 			Nan::ThrowError("Failed to remove hostname monitor");
 			return;
 		} else {
-			uv_async_hostname_monitor_free(monitor);
+			uv_close((uv_handle_t *)monitor, (void (*)(uv_handle_t *))uv_async_hostname_monitor_free);
 			Nan::Delete(jsCallbackAsObject, propertyName);
 		}
 		info.GetReturnValue().Set(Nan::New(result));
