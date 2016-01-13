@@ -51,6 +51,7 @@
 			"target_name": "soletta",
 			"sources": [
 				"bindings/nodejs/generated/main.cc",
+				"bindings/nodejs/src/async-patterns/string.c",
 				"bindings/nodejs/src/data.cc",
 				"bindings/nodejs/src/functions/simple.cc",
 				"bindings/nodejs/src/functions/sol-platform-monitors.cc"
