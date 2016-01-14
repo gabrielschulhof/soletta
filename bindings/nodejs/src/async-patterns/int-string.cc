@@ -1,5 +1,4 @@
-#include <nan.h>
-#include "int-string.h"
+#include "async-patterns.h"
 
 using namespace v8;
 
@@ -15,6 +14,8 @@ static void deliver_one_item(uv_idle_t *handle) {
 	// Place an item from the queue into the_entry and retrieve the JS callback
 	DELIVER_ONE_ITEM(handle, the_entry, jsCallback, std::queue<int_string> *);
 
+	// Transfer the item to JS
+	Nan::HandleScope scope;
 	Local<Value> jsCallbackArguments[2] = {
 		Nan::New(the_entry.the_int),
 		Nan::New(the_entry.the_string).ToLocalChecked()
@@ -23,33 +24,20 @@ static void deliver_one_item(uv_idle_t *handle) {
 	jsCallback->Call(2, jsCallbackArguments);
 }
 
-// This function is called from the soletta thread. Free an existing string if present. Copy the
-// new string to the async structure and wake the node main loop.
-static void defaultIntStringMonitor_soletta(void *data, int the_int, const char *the_string) {
+// This function is called from the soletta thread. Push the new item into the queue and wake the
+// main loop
+static void defaultMonitor_soletta(void *data, int the_int, const char *the_string) {
 	int_string the_entry = { the_int, strdup(the_string) };
-	SOLETTA_CALLBACK(((uv_async_monitor_t *)data), the_entry, std::queue<int_string> *);
+	SOLETTA_CALLBACK(data, the_entry, std::queue<int_string> *);
 }
 
-static void free_the_queue(generic_queue *the_queue) {
+static void free_the_queue(std::queue<int_string> *the_queue) {
 	if (the_queue) {
-		std::queue<int_string> *real_queue = (std::queue<int_string> *)the_queue;
-		while (!real_queue->empty()) {
-			free(real_queue->front().the_string);
-			real_queue->pop();
+		for(; !the_queue->empty(); the_queue->pop()) {
+			free(the_queue->front().the_string);
 		}
-		delete real_queue;
+		delete the_queue;
 	}
 }
 
-uv_async_int_string_monitor_t *uv_async_int_string_monitor_new(Nan::Callback *jsCallback) {
-	return (uv_async_int_string_monitor_t *)uv_async_monitor_new(
-		jsCallback,
-		new std::queue<int_string>,
-		free_the_queue,
-		deliver_one_item,
-		(void(*)(void *))defaultIntStringMonitor_soletta);
-}
-
-void uv_async_int_string_monitor_free(uv_async_int_string_monitor_t *monitor) {
-	uv_async_monitor_free((uv_async_monitor_t *)monitor);
-}
+DECLARE_PUBLIC_API_C(int_string, int_string)
