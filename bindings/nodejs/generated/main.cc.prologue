@@ -9,7 +9,7 @@ using namespace v8;
 #include "main.h"
 #include "../src/common.h"
 
-uv_rwlock_t big_giant_lock;
+uv_mutex_t big_giant_mutex;
 
 void sol_thread_entry_point(void *nothing) {
 	sol_init();
@@ -18,7 +18,7 @@ void sol_thread_entry_point(void *nothing) {
 
 void Init(Handle<Object> exports, Handle<Object> module) {
   uv_thread_t sol_thread;
-  uv_rwlock_init(&big_giant_lock);
+  uv_mutex_init(&big_giant_mutex);
   uv_thread_create(&sol_thread, sol_thread_entry_point, NULL);
 
   // Generated stuff below here

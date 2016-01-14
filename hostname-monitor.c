@@ -4,16 +4,16 @@
 #include <sol-platform.h>
 #include <sol-mainloop.h>
 
-static void hostnameHasChanged(void *nothing, const char *hostname) {
-	printf("%s\n", hostname);
+static void localeHasChanged(void *nothing, enum sol_platform_locale_category category, const char *locale) {
+	printf("%d, %s\n", category, locale);
 }
 
 static void startup() {
-	sol_platform_add_hostname_monitor(hostnameHasChanged, NULL);
+	sol_platform_add_locale_monitor(localeHasChanged, NULL);
 }
 
 static void shutdown() {
-	sol_platform_del_hostname_monitor(hostnameHasChanged, NULL);
+	sol_platform_del_locale_monitor(localeHasChanged, NULL);
 }
 
 SOL_MAIN_DEFAULT(startup, shutdown);

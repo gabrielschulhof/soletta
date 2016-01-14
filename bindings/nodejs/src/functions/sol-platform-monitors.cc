@@ -9,8 +9,6 @@
 
 using namespace v8;
 
-extern uv_rwlock_t big_giant_lock;
-
 #define MONITOR_BINDING_ADD(name, signature, callback_cast) \
 	VALIDATE_ARGUMENT_COUNT(info, 1); \
 	VALIDATE_ARGUMENT_TYPE(info, 0, IsFunction); \
