@@ -84,3 +84,13 @@ NAN_METHOD(bind_sol_platform_del_locale_monitor) {
 	MONITOR_BINDING_DEL(locale, int_string,
 		void(*)(void *, enum sol_platform_locale_category, const char *));
 }
+
+NAN_METHOD(bind_sol_platform_add_state_monitor) {
+	MONITOR_BINDING_ADD(locale, int,
+		void(*)(void *, enum sol_platform_state));
+}
+
+NAN_METHOD(bind_sol_platform_del_state_monitor) {
+	MONITOR_BINDING_DEL(locale, int,
+		void(*)(void *, enum sol_platform_locale_state));
+}
