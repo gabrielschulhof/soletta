@@ -121,10 +121,10 @@ static int hijack_refcount = 0;
 void hijack_ref() {
 	DBG_UV_LOOP_HIJACK(printf("hijack_ref: Entering\n"));
 	if (hijack_refcount == 0) {
-		hijack_refcount++;
 		DBG_UV_LOOP_HIJACK(printf("hijack_ref: hijacking main loop\n"));
 		hijack_main_loop();
 	}
+	hijack_refcount++;
 }
 
 void hijack_unref() {
