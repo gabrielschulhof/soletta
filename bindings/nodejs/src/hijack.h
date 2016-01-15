@@ -5,9 +5,7 @@
 extern "C" {
 #endif /* def __cplusplus */
 
-void hijack_ref();
-
-void hijack_unref();
+int node_sol_init();
 
 #ifdef __cplusplus
 }

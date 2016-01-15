@@ -1,12 +1,24 @@
 #include <v8.h>
 #include <node.h>
 #include <nan.h>
-#include <sol-mainloop.h>
 
 using namespace v8;
 
 #include "main.h"
 #include "../src/common.h"
+#include "../src/hijack.h"
 
 void Init(Handle<Object> exports, Handle<Object> module) {
-  sol_init();
+
+  // Set up uv main loop hijacking
+  int init_result = node_sol_init();
+  if (init_result == 1) {
+    Nan::ThrowError("Failed to set mainloop implementation");
+  } else if (init_result < 0) {
+    Nan::HandleScope scope;
+    Nan::ThrowError(String::Concat(
+      Nan::New("sol_init() failed with code ").ToLocalChecked(),
+      Nan::To<String>(Nan::New(init_result)).ToLocalChecked()));
+  }
+
+  // The rest of this file is generated

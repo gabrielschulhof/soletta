@@ -1,7 +1,6 @@
 #include <nan.h>
 #include "../data.h"
 #include "../common.h"
-#include "../hijack.h"
 
 #include <sol-platform.h>
 
@@ -17,7 +16,6 @@ using namespace v8;
 				(PropertyAttribute)(DontDelete | DontEnum | ReadOnly)); \
 		} \
 		info.GetReturnValue().Set(Nan::New(result)); \
-		hijack_ref(); \
 	} while(0)
 
 #define SOL_PLATFORM_MONITOR_ADD(name, callback) \
@@ -47,7 +45,6 @@ using namespace v8;
 				delete jsCallback; \
 			} \
 			info.GetReturnValue().Set(Nan::New(result)); \
-			hijack_unref(); \
 		} \
 	} while(0)
 
