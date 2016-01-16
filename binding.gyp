@@ -53,6 +53,10 @@
 				"bindings/nodejs/generated/main.cc",
 				"bindings/nodejs/src/data.cc",
 				"bindings/nodejs/src/hijack.c",
+				"bindings/nodejs/src/hijack-handles/child-watch.c",
+				"bindings/nodejs/src/hijack-handles/fd.c",
+				"bindings/nodejs/src/hijack-handles/idle-and-timeout.c",
+				"bindings/nodejs/src/hijack-handles/source.c",
 				"bindings/nodejs/src/functions/simple.cc",
 				"bindings/nodejs/src/functions/sol-platform-monitors.cc"
 			],

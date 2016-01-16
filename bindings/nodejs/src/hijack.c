@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <uv.h>
-#include <sol-mainloop.h>
 
-#define DBG_UV_LOOP_HIJACK(s) s
+#include "hijack-handles/hijack-handles.h"
 
 enum MainloopState {
 	MAINLOOP_HIJACKING_STARTED,
@@ -13,9 +12,10 @@ enum MainloopState {
 
 static enum MainloopState mainloopState = MAINLOOP_RELEASED;
 static uv_idle_t uv_idle;
-static struct sol_mainloop_source *uv_loop_source = NULL;
-static struct sol_fd *uv_loop_fd = NULL;
-static bool sol_init_complete = false;
+
+struct sol_fd *uv_loop_fd = NULL;
+struct sol_mainloop_source *uv_loop_source = NULL;
+bool sol_init_complete = false;
 
 static void uv_idle_callback() {
 	if (mainloopState == MAINLOOP_HIJACKING_STARTED) {
@@ -24,9 +24,9 @@ static void uv_idle_callback() {
 		sol_run();
 		DBG_UV_LOOP_HIJACK(printf("uv_idle_callback: sol_run() has returned\n"));
 
-		// Somebody may have requested a hijacking of the loop in the interval between sol_quit()
-		// and the return of sol_run(), in which case another call to the idler is on its way.
-		// In that case, we should not set the state to MAINLOOP_RELEASED here.
+		/* Somebody may have requested a hijacking of the loop in the interval between sol_quit()
+		 * and the return of sol_run(), in which case another call to the idler is on its way.
+		 * In that case, we should not set the state to MAINLOOP_RELEASED here. */
 		if (mainloopState == MAINLOOP_RELEASING_STARTED) {
 			mainloopState = MAINLOOP_RELEASED;
 		}
@@ -57,7 +57,7 @@ static bool uv_loop_source_get_next_timeout(void *data, struct timespec *timeout
 	return ( t >= 0 ) && uv_loop_source_check(data);
 }
 
-static void uv_loop_source_dispatch (void *data) {
+void uv_loop_source_dispatch (void *data) {
 	DBG_UV_LOOP_HIJACK(printf("uv_loop_source_dispatch: Running one uv loop iteration\n"));
     uv_run((uv_loop_t *)data, UV_RUN_NOWAIT);
 }
@@ -83,14 +83,20 @@ static void hijack_main_loop() {
 		return;
 	}
 
-	// The actual hijacking starts here, inspired by node-gtk. The plan:
-	// 1. Attach a source to the glib main loop
-	// 2. Attach a repeating timeout to the uv main loop to keep it from exiting until the signal arrives
-	// 3. Send ourselves a SIGUSR2 which we handle outside of node, and wherein we start the main loop
+	/* The actual hijacking starts here, inspired by node-gtk. The plan:
+	 * 1. Attach a source and the uv backend file descriptor to the soletta main loop
+	 * 2. Attach an idler to the uv main loop to keep it from exiting and to run sol_run()
+	 * 3. When the idler runs sol_run() it interrupts an iteration of the uv main loop because the
+	 *    idler never returns, but that's OK because the soletta main loop runs and eventually,
+	 *    through the source we attached in step 1, causes the uv main loop to run once, now in one
+	 *    level of recursion, without blocking. As part of that iteration, we remove the idler
+	 *    which is stuck anyway. This makes sure its handle doesn't prevent the uv main loop from
+	 *    quitting. */
 
 	mainloopState = MAINLOOP_HIJACKING_STARTED;
 
-	// We allocate a main loop and a source only once. After that, we simple start/stop the loop.
+	/* We attach a source to the soletta main loop only once. After that, we simply start/stop the
+	 * soletta main loop. */
 	if (!uv_loop_source) {
 		DBG_UV_LOOP_HIJACK(printf("hijack_main_loop: Allocating loop-related variables\n"));
 		uv_loop_t *uv_loop = uv_default_loop();
@@ -111,7 +117,7 @@ static void release_main_loop() {
 		return;
 	}
 
-	// hijack_main_loop() was called, but the idler has not yet run
+	/* hijack_main_loop() was called, but the idler has not yet run */
 	if (mainloopState == MAINLOOP_HIJACKING_STARTED) {
 		DBG_UV_LOOP_HIJACK(printf("release_main_loop: idler has not yet run, so stopping it\n"));
 		uv_idle_stop(&uv_idle);
@@ -125,7 +131,7 @@ static void release_main_loop() {
 
 static int hijack_refcount = 0;
 
-static void hijack_ref() {
+void hijack_ref() {
 	DBG_UV_LOOP_HIJACK(printf("hijack_ref: Entering\n"));
 	if (hijack_refcount == 0) {
 		DBG_UV_LOOP_HIJACK(printf("hijack_ref: hijacking main loop\n"));
@@ -134,7 +140,7 @@ static void hijack_ref() {
 	hijack_refcount++;
 }
 
-static void hijack_unref() {
+void hijack_unref() {
 	DBG_UV_LOOP_HIJACK(printf("hijack_unref: Entering\n"));
 	hijack_refcount--;
 	if (hijack_refcount == 0) {
@@ -143,107 +149,25 @@ static void hijack_unref() {
 	}
 }
 
-// Intercept calls which add handles to or remove them from the main loop so we can start/stop the
-// loop in response.
-
-#define HANDLE_ADD(name, ...) \
-	do { \
-		void *returnValue = 0; \
-		if (sol_init_complete == true) { \
-			DBG_UV_LOOP_HIJACK(printf(#name "_add: Reffing loop\n")); \
-			hijack_ref(); \
-		} \
-		returnValue = SOL_MAINLOOP_IMPLEMENTATION_DEFAULT->name##_add( __VA_ARGS__ ); \
-		if (!returnValue) { \
-			DBG_UV_LOOP_HIJACK(printf(#name "_add: Addition failed - unreffing loop\n")); \
-			hijack_unref(); \
-		} \
-		return returnValue; \
-	} while(0)
-
-#define HANDLE_DEL(name, handle) \
-	do { \
-		DBG_UV_LOOP_HIJACK(printf(#name "_del: Removing\n")); \
-		bool returnValue = SOL_MAINLOOP_IMPLEMENTATION_DEFAULT->name##_del(handle); \
-		if (returnValue && sol_init_complete == true) { \
-			DBG_UV_LOOP_HIJACK(printf(#name "_del: Removal succeeded - unreffing loop\n")); \
-			hijack_unref(); \
-		} \
-		return returnValue; \
-	} while(0)
-
-static void *node_sol_loop_timeout_add(uint32_t timeout_ms, bool (*cb)(void *data), const void *data) {
-	HANDLE_ADD(timeout, timeout_ms, cb, data);
-}
-
-static bool node_sol_loop_timeout_del(void *handle) {
-	HANDLE_DEL(timeout, handle);
-}
-
-static void *node_sol_loop_idle_add(bool (*cb)(void *data), const void *data) {
-	HANDLE_ADD(idle, cb, data);
-}
-
-static bool node_sol_loop_idle_del(void *handle) {
-	HANDLE_DEL(idle, handle);
-}
-
-#ifdef SOL_MAINLOOP_FD_ENABLED
-static void *node_sol_loop_fd_add(int the_fd, uint32_t flags, bool (*cb)(void *data, int fd, uint32_t active_flags), const void *data) {
-	DBG_UV_LOOP_HIJACK(printf("node_sol_loop_fd_add: Entering\n"));
-
-	// Adding the uv main loop backend fd should not cause reffing
-	if (the_fd == uv_backend_fd(uv_default_loop())) {
-		DBG_UV_LOOP_HIJACK(printf("node_sol_loop_fd_add: Adding uv backend fd, so skipping refcounting\n"));
-		return SOL_MAINLOOP_IMPLEMENTATION_DEFAULT->fd_add(the_fd, flags, cb, data);
-	}
-	HANDLE_ADD(fd, the_fd, flags, cb, data);
-}
-
-static bool node_sol_loop_fd_del(void *handle) {
-	DBG_UV_LOOP_HIJACK(printf("node_sol_loop_fd_del: Entering\n"));
-
-	// Removing the main loop backend fd should not cause unreffing
-	if (handle == (void *)uv_loop_fd) {
-		DBG_UV_LOOP_HIJACK(printf("node_sol_loop_fd_del: Removing uv backend fd, so skipping refcounting\n"));
-		return SOL_MAINLOOP_IMPLEMENTATION_DEFAULT->fd_del(handle);
-	}
-	HANDLE_DEL(fd, handle);
-}
-#endif /* def SOL_MAINLOOP_FD_ENABLED */
-
-#ifdef SOL_MAINLOOP_FORK_WATCH_ENABLED
-static void *node_sol_loop_child_watch_add(uint64_t pid, void (*cb)(void *data, uint64_t pid, int status), const void *data) {
-	HANDLE_ADD(child_watch, pid, cb, data);
-}
-
-static bool node_sol_loop_child_watch_del(void *handle) {
-	HANDLE_DEL(child_watch, handle);
-}
-#endif /* def SOL_MAINLOOP_FORK_WATCH_ENABLED */
-
-static void *node_sol_loop_source_add(const struct sol_mainloop_source_type *type, const void *data) {
-	DBG_UV_LOOP_HIJACK(printf("node_sol_loop_source_add: Entering\n"));
-
-	// Adding the main loop source should not cause reffing
-	if (type->dispatch == uv_loop_source_dispatch) {
-		DBG_UV_LOOP_HIJACK(printf("node_sol_loop_source_add: Adding uv source, so skipping refcounting\n"));
-		return SOL_MAINLOOP_IMPLEMENTATION_DEFAULT->source_add(type, data);
-	}
-	HANDLE_ADD(source, type, data);
-}
-
-static void node_sol_loop_source_del(void *source) {
-	DBG_UV_LOOP_HIJACK(printf("node_sol_loop_source_del: Entering\n"));
-	SOL_MAINLOOP_IMPLEMENTATION_DEFAULT->source_del(source);
-
-	// Removing the main loop source should not cause unreffing
-	if (source != uv_loop_source) {
-		DBG_UV_LOOP_HIJACK(printf("node_sol_loop_source_add: Removing non-uv source, so doing refcounting\n"));
-		hijack_unref();
-	}
-}
-
+/*
+ * We need to intercept the addition of handles to the soletta main loop, because we need to keep
+ * a close eye on the number of open handles attached to the soletta main loop. This is because the
+ * node.js way of running an app is that the main loop quits when there's nothing left to do.
+ * Nobody expects that they have to explicitly terminate the main loop in order to exit the
+ * application. Thus, we need to intercept whenever a handle is added to the soletta main loop, and
+ * also whenever a handle is removed from the soletta main loop. Note that removal can happen
+ * explicitly, via sol_del_*(), or implicitly, for example by closing a file descriptor that has a
+ * watch attached, or by returning false from an idle/timeout handler. We also need to intercept
+ * these implicit handle removals in order to have a correct tally of open handles currently
+ * attached to the main loop
+ * TODO implicit handle removal:
+ * - timer: callback returns false
+ * - idler: callback returns false
+ * - source: dispose() is called
+ * ? child watch: The callback itself(?) That assumes that, when the process quits, the child watch is removed.
+ * ? fd: The callback itself with some condition(SOL_FD_FLAG_NVAL?) That assumes that closing the
+ *       fd causes some condition that will be reported by the watcher.
+ */
 struct sol_mainloop_implementation node_intercept;
 
 static bool node_sol_already_init = false;
@@ -254,7 +178,8 @@ int node_sol_init() {
 	}
 	node_sol_already_init = true;
 
-	// Copy the existing soletta mainloop implementation, modify some of the functions, and set it
+	/* Copy the existing soletta mainloop implementation, modify some of the functions, and set it
+	 * as the new implementation */
 	node_intercept = *sol_mainloop_get_implementation();
 
 	node_intercept.timeout_add = node_sol_loop_timeout_add;

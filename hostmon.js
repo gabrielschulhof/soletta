@@ -15,7 +15,9 @@ function hostnameChangeHandler( hostname ) {
 	}
 }
 
+console.log( "Adding hostname monitor" );
 soletta.sol_platform_add_hostname_monitor( hostnameChangeHandler );
+console.log( "Added hostname monitor" );
 
 var timezoneChangeCount = 0;
 
@@ -32,8 +34,10 @@ function timezoneChangeHandler( timezone ) {
 	}
 }
 
+console.log( "Adding timezone monitor" );
 soletta.sol_platform_add_timezone_monitor( timezoneChangeHandler );
-
+console.log( "Added timezone monitor" );
+/*
 function localeChangeHandler( category, locale ) {
 	var iterator, theCategory;
 	for ( iterator in soletta.sol_platform_locale_category ) {
@@ -47,3 +51,4 @@ function localeChangeHandler( category, locale ) {
 }
 
 soletta.sol_platform_add_locale_monitor( localeChangeHandler );
+*/
