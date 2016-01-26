@@ -49,9 +49,11 @@
 						"bindings/nodejs/src/functions/network-address.cc",
 						"bindings/nodejs/src/functions/oic-client.c",
 						"bindings/nodejs/src/functions/oic-client-discovery.cc",
+						"bindings/nodejs/src/functions/oic-client-get-platform-info.cc",
 						"bindings/nodejs/src/functions/simple.cc",
 						"bindings/nodejs/src/functions/sol-platform-monitors.cc",
 						"bindings/nodejs/src/structures/network-link-addr.cc",
+						"bindings/nodejs/src/structures/oic-platform-and-server-info.cc",
 						"bindings/nodejs/src/structures/oic-resource.cc"
 					],
 					"include_dirs": [
