@@ -43,7 +43,9 @@
 					"target_name": "soletta",
 					"sources": [
 						"bindings/nodejs/generated/main.cc",
+						"bindings/nodejs/src/async-bridge.cc",
 						"bindings/nodejs/src/data.cc",
+						"bindings/nodejs/src/hijack.c",
 						"bindings/nodejs/src/functions/simple.cc"
 					],
 					"include_dirs": [
