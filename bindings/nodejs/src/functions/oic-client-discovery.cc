@@ -30,65 +30,70 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <stdlib.h>
+#include <sol-oic-client.h>
 #include <nan.h>
-#include <v8.h>
-#include "data.h"
-#include "common.h"
+
+#include "../common.h"
+#include "../hijack.h"
+#include "oic-client.h"
+#include "../structures/oic-resource.h"
+#include "../structures/network-link-addr.h"
 
 using namespace v8;
 
-Local<Array> jsArrayFromBytes(unsigned char *bytes, size_t length) {
-  size_t index;
-  Local<Array> returnValue = Nan::New<Array>(length);
+static bool sol_oic_client_find_resource_callback(struct sol_oic_client *cli, struct sol_oic_resource *resource, void *data) {
+	Nan::HandleScope scope;
+	Nan::Callback *callback = (Nan::Callback *)data;
 
-  for (index = 0; index < length; index++) {
-    Nan::Set(returnValue, index, Nan::New(bytes[index]));
-  }
-  return returnValue;
-}
+	Local<Value> arguments[1] = {
+		resource ?
+			Local<Value>::Cast(js_sol_oic_resource(resource)) :
+			Local<Value>::Cast(Nan::Null())
+	};
 
-bool fillCArrayFromJSArray(unsigned char *bytes, size_t length,
-                                  Local<Array> array) {
-  size_t index, arrayLength;
+	Local<Value> jsReturnValue = callback->Call(1, arguments);
+	VALIDATE_CALLBACK_RETURN_VALUE_TYPE(jsReturnValue, IsBoolean,
+		"resource discovery callback");
+	bool returnValue = jsReturnValue->BooleanValue();
 
-  arrayLength = array->Length();
-  if (arrayLength != length) {
-    Nan::ThrowError("byte array has the wrong length");
-    return false;
-  }
-
-  for (index = 0; index < length; index++) {
-    Local<Value> byte = Nan::Get(array, index).ToLocalChecked();
-    VALIDATE_VALUE_TYPE(byte, IsUint32, "byte array item", false);
-    bytes[index] = (unsigned char)(byte->Uint32Value());
-  }
-
-  return true;
-}
-
-bool c_StringNew(Local<String> jsString, char **p_string) {
-  size_t length = strlen((const char *)*(String::Utf8Value(jsString)));
-  char *string = (char *)malloc(length + 1);
-  if (!string) {
-    Nan::ThrowError("Failed to allocate memory for C string");
-    return false;
-  }
-  string[length] = 0;
-  strcpy(string, (const char *)*(String::Utf8Value(jsString)));
-
-  *p_string = string;
-  return true;
-}
-
-Local<Value> jsStringFromSlice(struct sol_str_slice *slice) {
-	char *the_string = 0;
-
-	the_string = (char *)malloc(sizeof(char) * (slice->len + 1));
-	if (!the_string) {
-		Nan::ThrowError( "Failed to allocate string" );
-		return Local<Value>::Cast(Nan::Null());
+	if (!returnValue || !resource) {
+		delete callback;
+		hijack_unref();
 	}
-	memcpy(the_string, slice->data, slice->len);
-	the_string[slice->len] = 0;
-	return Local<Value>::Cast(Nan::New(the_string).ToLocalChecked());
+
+	return returnValue;
+}
+
+NAN_METHOD(bind_sol_oic_client_find_resource) {
+	VALIDATE_ARGUMENT_COUNT(info, 3);
+	VALIDATE_ARGUMENT_TYPE(info, 0, IsObject);
+	VALIDATE_ARGUMENT_TYPE(info, 1, IsString);
+	VALIDATE_ARGUMENT_TYPE(info, 2, IsFunction);
+
+	Local<Object> jsDestination = Local<Object>::Cast(info[0]);
+
+	struct sol_network_link_addr destination;
+
+	if (!c_sol_network_link_addr(jsDestination, &destination)) {
+		return;
+	}
+
+	Nan::Callback *callback =
+		new Nan::Callback(Local<Function>::Cast(info[2]));
+
+	bool returnValue = sol_oic_client_find_resource(
+		sol_oic_client_get(),
+		&destination,
+		(const char *)*String::Utf8Value(info[1]),
+		sol_oic_client_find_resource_callback,
+		callback);
+
+	if (!returnValue) {
+		delete callback;
+	} else {
+		hijack_ref();
+	}
+
+	info.GetReturnValue().Set(Nan::New(returnValue));
 }

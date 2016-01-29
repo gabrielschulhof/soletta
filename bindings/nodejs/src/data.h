@@ -34,10 +34,12 @@
 #define __SOLETTA_JS_DATA_H__
 
 #include <v8.h>
+#include <sol-str-slice.h>
 
 v8::Local<v8::Array> jsArrayFromBytes(unsigned char *bytes, size_t length);
 bool fillCArrayFromJSArray(unsigned char *bytes, size_t length,
     v8::Local<v8::Array> array);
 bool c_StringNew(v8::Local<v8::String> jsString, char **p_string);
+v8::Local<v8::Value> jsStringFromSlice(struct sol_str_slice *slice);
 
 #endif /* ndef __SOLETTA_JS_DATA_H__ */
