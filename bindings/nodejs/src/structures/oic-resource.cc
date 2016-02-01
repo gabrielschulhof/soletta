@@ -36,35 +36,9 @@
 #include "../common.h"
 #include "../data.h"
 #include "network-link-addr.h"
+#include "device-id.h"
 
 using namespace v8;
-
-static Local<Value> deviceIdFromSlice(struct sol_str_slice *slice) {
-	char returnValue[37] = "";
-	if (slice->len != 16) {
-		Nan::ThrowRangeError("Data for deviceId is not 16 bytes long");
-		return Local<Value>::Cast(Nan::Null());
-	}
-
-	// Canonical uuid format
-	int result = snprintf(returnValue, 37,
-		"%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-		(unsigned char)(slice->data[0]), (unsigned char)(slice->data[1]),
-		(unsigned char)(slice->data[2]), (unsigned char)(slice->data[3]),
-		(unsigned char)(slice->data[4]), (unsigned char)(slice->data[5]),
-		(unsigned char)(slice->data[6]), (unsigned char)(slice->data[7]),
-		(unsigned char)(slice->data[8]), (unsigned char)(slice->data[9]),
-		(unsigned char)(slice->data[10]), (unsigned char)(slice->data[11]),
-		(unsigned char)(slice->data[12]), (unsigned char)(slice->data[13]),
-		(unsigned char)(slice->data[14]), (unsigned char)(slice->data[15]));
-
-	if (result != 36) {
-		Nan::ThrowError("Failed to convert deviceId to string");
-		return Local<Value>::Cast(Nan::Null());
-	}
-
-	return Local<Value>::Cast(Nan::New(returnValue).ToLocalChecked());
-}
 
 class SolOicResource : public Nan::ObjectWrap {
 	public:
@@ -140,7 +114,7 @@ class SolOicResource : public Nan::ObjectWrap {
 				info.GetReturnValue().Set(js_sol_network_link_addr(&(resource->addr)));
 			}
 			if (!strcmp((const char *)*String::Utf8Value(property), "device_id")) {
-				info.GetReturnValue().Set(deviceIdFromSlice(&(resource->device_id)));
+				info.GetReturnValue().Set(js_DeviceIdFromSlice(&(resource->device_id)));
 			}
 			if (!strcmp((const char *)*String::Utf8Value(property), "href")) {
 				info.GetReturnValue().Set(Nan::New<String>(resource->href.data, resource->href.len).ToLocalChecked());

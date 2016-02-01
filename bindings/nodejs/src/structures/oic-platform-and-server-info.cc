@@ -1,5 +1,6 @@
 #include <nan.h>
 
+#include "device-id.h"
 #include "oic-platform-and-server-info.h"
 
 using namespace v8;
@@ -32,7 +33,9 @@ Local<Object> js_sol_oic_server_information(const struct sol_oic_server_informat
 	Local<Object> returnValue = Nan::New<Object>();
 
 	JS_STRING_FROM_STRING_SLICE_MEMBER(returnValue, info, data_model_version);
-	JS_STRING_FROM_STRING_SLICE_MEMBER(returnValue, info, device_id);
+	Nan::Set(returnValue, Nan::New("device_id").ToLocalChecked(),
+		js_DeviceIdFromSlice(&(info->device_id)));
+
 	JS_STRING_FROM_STRING_SLICE_MEMBER(returnValue, info, device_name);
 	JS_STRING_FROM_STRING_SLICE_MEMBER(returnValue, info, spec_version);
 
