@@ -1,3 +1,8 @@
+if ( process.argv.length < 3 ) {
+	console.error( "Usage: " + process.argv[ 0 ] + " " + process.argv[ 1 ] + " <resource path>" );
+	process.exit( 1 );
+}
+
 var soletta = require( "./index" ),
 	_ = require( "lodash" );
 
