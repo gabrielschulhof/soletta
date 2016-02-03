@@ -37,26 +37,20 @@
 #include "../common.h"
 #include "../structures/network-link-addr.h"
 #include "oic-client.h"
-#include "../structures/oic-map-reader.h"
+#include "../structures/oic-map.h"
 #include "../structures/oic-resource.h"
 
 using namespace v8;
 
-#define OBSERVER_SIGNATURE \
-	sol_coap_responsecode_t responseCode, \
-	struct sol_oic_client *client, \
-	const struct sol_network_link_addr *address, \
-	const struct sol_oic_map_reader *representation, \
-	void *data
-
-static void resourceObserver(OBSERVER_SIGNATURE, const char *eventPrefix) {
+static void resourceObserver(RECEIVER_SIGNATURE, const char *eventPrefix) {
 	Nan::HandleScope scope;
 	char eventName[256] = "";
 	snprintf(eventName, 255, "oic.client.observe.%s.%p", eventPrefix, data);
 	Local<Value> arguments[4] = {
 		Nan::New(eventName).ToLocalChecked(),
 		Nan::New(responseCode),
-		js_sol_network_link_addr(address),
+		address ? Local<Value>::Cast(js_sol_network_link_addr(address)) :
+			Local<Value>::Cast(Nan::Null()),
 		representation ?
 			Local<Value>::Cast(js_sol_oic_map_reader(representation)) :
 			Local<Value>::Cast(Nan::Null())
@@ -65,12 +59,12 @@ static void resourceObserver(OBSERVER_SIGNATURE, const char *eventPrefix) {
 	async_bridge_call(4, arguments);
 }
 
-static void defaultNonConfirmingResourceObserver(OBSERVER_SIGNATURE) {
+static void defaultNonConfirmingResourceObserver(RECEIVER_SIGNATURE) {
 	resourceObserver(responseCode, client, address, representation, data,
 		"nonconfirm");
 }
 
-static void defaultConfirmingResourceObserver(OBSERVER_SIGNATURE) {
+static void defaultConfirmingResourceObserver(RECEIVER_SIGNATURE) {
 	resourceObserver(responseCode, client, address, representation, data,
 		"confirm");
 }
@@ -78,9 +72,9 @@ static void defaultConfirmingResourceObserver(OBSERVER_SIGNATURE) {
 static struct {
 	bool (*c_api)(struct sol_oic_client *client,
 		struct sol_oic_resource *res,
-		void(*callback)(OBSERVER_SIGNATURE),
+		void(*callback)(RECEIVER_SIGNATURE),
 		const void *data, bool observe);
-	void (*c_callback)(OBSERVER_SIGNATURE);
+	void (*c_callback)(RECEIVER_SIGNATURE);
 } observationMap[2] = {
 	{
 		sol_oic_client_resource_set_observable,
