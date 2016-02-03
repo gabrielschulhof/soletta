@@ -30,26 +30,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __SOLETTA_NODE_JS_OIC_CLIENT_H__
-#define __SOLETTA_NODE_JS_OIC_CLIENT_H__
+#ifndef __SOLETTA_NODE_JS_OIC_MAP_READER_H__
+#define __SOLETTA_NODE_JS_OIC_MAP_READER_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* def __cplusplus */
-
+#include <v8.h>
 #include <sol-oic-client.h>
 
-#define RECEIVER_SIGNATURE \
-    sol_coap_responsecode_t responseCode, \
-    struct sol_oic_client *client, \
-    const struct sol_network_link_addr *address, \
-    const struct sol_oic_map_reader *representation, \
-    void *data
+v8::Local<v8::Object> js_sol_oic_map_reader(const struct sol_oic_map_reader *representation);
 
-struct sol_oic_client *sol_oic_client_get();
+bool c_sol_oic_map_writer(v8::Local<v8::Object> payload, struct sol_oic_map_writer *map);
 
-#ifdef __cplusplus
-}
-#endif /* def __cplusplus */
-
-#endif /* ndef __SOLETTA_NODE_JS_OIC_CLIENT_H__ */
+#endif /* ndef __SOLETTA_NODE_JS_OIC_MAP_READER_H__ */

@@ -31,6 +31,17 @@ if ( !soletta.sol_oic_client_find_resource( destination, "", function( resource 
 						console.log( "resource: Enough observations. Removing observe request" );
 						soletta.sol_oic_client_resource_set_observable( resource, returnValue,
 							false );
+						console.log( "resource: Issuing get() request" );
+						soletta.sol_oic_client_resource_request( resource,
+							soletta.sol_coap_method_t.SOL_COAP_METHOD_GET, null,
+								function( responseCode, address, representation ) {
+									console.log( "resource retrieval: " +
+										JSON.stringify( {
+											responseCode: responseCode,
+											address: address,
+											representation: representation
+										}, null, 4 ) );
+								} );
 					}
 				};
 				return returnValue;

@@ -50,6 +50,7 @@ cat bindings/nodejs/generated/main.h.prologue > bindings/nodejs/generated/main.h
 FILES=\
 'sol-network.h
 sol-oic-client.h
+sol-coap.h
 sol-platform.h'
 
 for file in $FILES; do
