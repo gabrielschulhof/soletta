@@ -86,9 +86,9 @@ Local<Value> jsStringFromSlice(struct sol_str_slice *slice) {
 	the_string = (char *)malloc(sizeof(char) * (slice->len + 1));
 	if (!the_string) {
 		Nan::ThrowError( "Failed to allocate string" );
-		return Local<Value>::Cast(Nan::Null());
+		return Nan::Null();
 	}
 	memcpy(the_string, slice->data, slice->len);
 	the_string[slice->len] = 0;
-	return Local<Value>::Cast(Nan::New(the_string).ToLocalChecked());
+	return Nan::New(the_string).ToLocalChecked();
 }

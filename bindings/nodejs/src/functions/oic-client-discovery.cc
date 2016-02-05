@@ -46,13 +46,14 @@ static bool sol_oic_client_find_resource_callback(struct sol_oic_client *cli, st
 	Nan::HandleScope scope;
 	Nan::Callback *callback = (Nan::Callback *)data;
 
-	Local<Value> arguments[1] = {
-		resource ?
-			Local<Value>::Cast(js_sol_oic_resource(resource)) :
-			Local<Value>::Cast(Nan::Null())
-	};
-
+	Local<Value> arguments[1];
+	if (resource) {
+		arguments[0] = js_sol_oic_resource(resource);
+	} else {
+		arguments[0] = Nan::Null();
+	}
 	Local<Value> jsReturnValue = callback->Call(1, arguments);
+
 	VALIDATE_CALLBACK_RETURN_VALUE_TYPE(jsReturnValue, IsBoolean,
 		"resource discovery callback");
 	bool returnValue = jsReturnValue->BooleanValue();

@@ -46,14 +46,18 @@ static void resourceObserver(RECEIVER_SIGNATURE, const char *eventPrefix) {
 	Nan::HandleScope scope;
 	char eventName[256] = "";
 	snprintf(eventName, 255, "oic.client.observe.%s.%p", eventPrefix, data);
-	Local<Value> arguments[4] = {
-		Nan::New(eventName).ToLocalChecked(),
-		Nan::New(responseCode),
-		address ? Local<Value>::Cast(js_sol_network_link_addr(address)) :
-			Local<Value>::Cast(Nan::Null()),
-		representation ?
-			Local<Value>::Cast(js_sol_oic_map_reader(representation)) :
-			Local<Value>::Cast(Nan::Null())
+	Local<Value> arguments[4];
+	arguments[0] = Nan::New(eventName).ToLocalChecked();
+	arguments[1] = Nan::New(responseCode);
+	if (address) {
+		arguments[2] = js_sol_network_link_addr(address);
+	} else {
+		arguments[2] = Nan::Null();
+	}
+	if (representation) {
+		arguments[3] = js_sol_oic_map_reader(representation);
+	} else {
+		arguments[3] = Nan::Null();
 	};
 
 	async_bridge_call(4, arguments);
@@ -123,7 +127,7 @@ static Local<Boolean> observation_implementation(struct sol_oic_resource *resour
 		VALIDATE_ARGUMENT_TYPE(info, 2, IsBoolean); \
 \
 		struct sol_oic_resource *resource; \
-		if (!c_sol_oic_resource(Local<Object>::Cast(info[0]), &resource)) { \
+		if (!c_sol_oic_resource(Nan::To<Object>(info[0]).ToLocalChecked(), &resource)) { \
 			return; \
 		} \
 \
