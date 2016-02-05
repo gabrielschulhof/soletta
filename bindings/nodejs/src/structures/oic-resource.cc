@@ -44,7 +44,7 @@ class SolOicResource : public Nan::ObjectWrap {
 	public:
 		static inline Local<Object> New(struct sol_oic_resource *resource) {
 			Local<Value> arguments[1] = {
-				Local<Value>::Cast(Nan::New<External>((void *)resource))
+				Nan::New<External>((void *)resource)
 			};
 			return Nan::GetFunction(Nan::New(theTemplate())).ToLocalChecked()->NewInstance(1, arguments);
 		}
@@ -151,7 +151,7 @@ bool c_sol_oic_resource(Local<Object> source, sol_oic_resource **resource) {
 	SolOicResource *jsResource = 0;
 
 	if (SolOicResource::Is(source)) {
-		jsResource = Nan::ObjectWrap::Unwrap<SolOicResource>(Local<Object>::Cast(source));
+		jsResource = Nan::ObjectWrap::Unwrap<SolOicResource>(Nan::To<Object>(source).ToLocalChecked());
 		if (jsResource) {
 			if (jsResource->_c_resource) {
 				*resource = jsResource->_c_resource;

@@ -58,13 +58,17 @@ static bool resourceSender(void *data, struct sol_oic_map_writer *map) {
 static void resourceReceiver(RECEIVER_SIGNATURE) {
 	Nan::HandleScope scope;
 	Nan::Callback *jsCallback = (Nan::Callback *)data;
-	Local<Value> arguments[3] = {
-		Nan::New(responseCode),
-		address ? Local<Value>::Cast(js_sol_network_link_addr(address)) :
-			Local<Value>::Cast(Nan::Null()),
-		representation ?
-			Local<Value>::Cast(js_sol_oic_map_reader(representation)) :
-			Local<Value>::Cast(Nan::Null())
+	Local<Value> arguments[3];
+	arguments[0] = Nan::New(responseCode);
+	if (address) {
+		arguments[1] = js_sol_network_link_addr(address);
+	} else {
+		arguments[1] = Nan::Null();
+	}
+	if (representation) {
+		arguments[2] = js_sol_oic_map_reader(representation);
+	} else {
+		arguments[2] = Nan::Null();
 	};
 
 	jsCallback->Call(3, arguments);
@@ -82,7 +86,7 @@ NAN_METHOD(bind_sol_oic_client_resource_request) {
 	VALIDATE_ARGUMENT_TYPE(info, 3, IsFunction);
 
 	struct sol_oic_resource *resource;
-	if (!c_sol_oic_resource(Local<Object>::Cast(info[0]), &resource)) {
+	if (!c_sol_oic_resource(Nan::To<Object>(info[0]).ToLocalChecked(), &resource)) {
 		return;
 	}
 
