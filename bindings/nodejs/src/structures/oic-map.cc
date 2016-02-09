@@ -173,3 +173,17 @@ bool c_sol_oic_map_writer(Local<Object> payload, struct sol_oic_map_writer *map)
 
 	return returnValue;
 }
+
+bool oic_map_writer_callback(void *data, struct sol_oic_map_writer *map) {
+	bool returnValue = true;
+
+	if (data) {
+		Nan::HandleScope scope;
+		Nan::Persistent<Object> *jsPayload = (Nan::Persistent<Object> *)data;
+		returnValue = c_sol_oic_map_writer(Nan::New<Object>(*jsPayload), map);
+		delete jsPayload;
+	}
+
+	return returnValue;
+}
+

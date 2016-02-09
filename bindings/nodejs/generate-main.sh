@@ -50,6 +50,7 @@ cat bindings/nodejs/generated/main.h.prologue > bindings/nodejs/generated/main.h
 FILES=\
 'sol-network.h
 sol-oic-client.h
+sol-oic-common.h
 sol-coap.h
 sol-platform.h'
 
@@ -125,7 +126,7 @@ echo "" >> "bindings/nodejs/generated/main.h"
 
 # Add all the bound functions
 find bindings/nodejs/src -type f | while read filename; do
-	cat "${filename}" | grep '^NAN_METHOD' | while read method; do
+	cat "${filename}" | grep '^NAN_METHOD' | grep -v '::' | while read method; do
 		echo "${method}" | sed 's/).*$/);/' >> bindings/nodejs/generated/main.h
 		echo "${method}" | sed -r 's/^\s*NAN_METHOD\s*\(\s*bind_([^)]*).*$/  SET_FUNCTION(target, \1);/' >> bindings/nodejs/generated/main.cc
 	done
