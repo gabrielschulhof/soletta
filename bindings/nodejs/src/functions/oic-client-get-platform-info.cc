@@ -69,6 +69,16 @@ void sol_oic_client_get_server_info_callback(struct sol_oic_client *client, cons
 	delete callback;
 }
 
+static bool c_sol_oic_resource(Local<Object> jsResource, struct sol_oic_resource **resource) {
+	struct sol_oic_resource *returnValue = (struct sol_oic_resource *)
+		SolOicResource::CResource(jsResource, false);
+	if (returnValue) {
+		*resource = returnValue;
+		return true;
+	}
+	return false;
+}
+
 #define PLATFORM_AND_SERVER_INFO_BINDING(cFunction, theCallback, byParam, byParamPointer, toCConverter) \
 	do { \
 		VALIDATE_ARGUMENT_COUNT(info, 2); \
