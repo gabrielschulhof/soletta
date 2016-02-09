@@ -52,6 +52,7 @@
 						"bindings/nodejs/src/functions/oic-client-get-platform-info.cc",
 						"bindings/nodejs/src/functions/oic-client-observation.cc",
 						"bindings/nodejs/src/functions/oic-client-request.cc",
+						"bindings/nodejs/src/functions/oic-server.cc",
 						"bindings/nodejs/src/functions/simple.cc",
 						"bindings/nodejs/src/functions/sol-platform-monitors.cc",
 						"bindings/nodejs/src/structures/device-id.cc",

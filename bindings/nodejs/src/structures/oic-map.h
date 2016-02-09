@@ -40,4 +40,5 @@ v8::Local<v8::Object> js_sol_oic_map_reader(const struct sol_oic_map_reader *rep
 
 bool c_sol_oic_map_writer(v8::Local<v8::Object> payload, struct sol_oic_map_writer *map);
 
+bool oic_map_writer_callback(void *data, struct sol_oic_map_writer *map);
 #endif /* ndef __SOLETTA_NODE_JS_OIC_MAP_READER_H__ */

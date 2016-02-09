@@ -126,8 +126,10 @@ static Local<Boolean> observation_implementation(struct sol_oic_resource *resour
 		VALIDATE_ARGUMENT_TYPE(info, 1, IsFunction); \
 		VALIDATE_ARGUMENT_TYPE(info, 2, IsBoolean); \
 \
-		struct sol_oic_resource *resource; \
-		if (!c_sol_oic_resource(Nan::To<Object>(info[0]).ToLocalChecked(), &resource)) { \
+		struct sol_oic_resource *resource = (struct sol_oic_resource *) \
+			SolOicResource::CResource( \
+				Nan::To<Object>(info[0]).ToLocalChecked(), false); \
+		if (!resource) { \
 			return; \
 		} \
 \
