@@ -209,9 +209,14 @@ bindings-nodejs: $(SOL_LIB_OUTPUT)
 
 PHONY += bindings-nodejs
 
-check-bindings-nodejs: bindings-nodejs
+check-bindings-nodejs: bindings-nodejs $(SOL_LIB_WRAPPER)
 	LD_PRELOAD=$(LIB_ASAN_PATH) node -p 'require( "./lowlevel" ).sol_platform_get_machine_id();'
 CHECK_DEPS += check-bindings-nodejs
 PHONY += check-bindings-nodejs
+
+$(SOL_LIB_WRAPPER): $(NODEJS_ROOT)/generated/libsoletta_wrapper.c
+	$(HOSTCC) -fPIC -shared $(addprefix -I,$(HEADERDIRS)) -o $@ $<
+$(NODEJS_ROOT)/generated/libsoletta_wrapper.c: $(SOL_LIB_OUTPUT) $(NODEJS_ROOT)/generate-wrapper.js $(NODEJS_ROOT)/generate-wrapper.sh $(NODEJS_ROOT)/generated/libsoletta_wrapper.c.prologue
+	$(NODEJS_ROOT)/generate-wrapper.sh $(SOL_LIB_OUTPUT) $(abspath $(HEADERDIRS))
 
 endif #neq($(USE_NODEJS),)

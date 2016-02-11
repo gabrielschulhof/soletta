@@ -46,6 +46,7 @@
 						"bindings/nodejs/src/async-bridge.cc",
 						"bindings/nodejs/src/data.cc",
 						"bindings/nodejs/src/hijack.c",
+						"bindings/nodejs/src/test-hook.c",
 						"bindings/nodejs/src/functions/network-address.cc",
 						"bindings/nodejs/src/functions/oic-client.c",
 						"bindings/nodejs/src/functions/oic-client-discovery.cc",
