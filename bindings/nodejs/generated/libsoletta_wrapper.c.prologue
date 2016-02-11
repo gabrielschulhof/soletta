@@ -1,0 +1,37 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <dlfcn.h>
+#include <sol-macros.h>
+
+static void (*prologue_hook)(const char *) = NULL;
+static void (*epilogue_hook)(const char *) = NULL;
+
+SOL_API void wrapper_set_hook(void (*prologue)(const char *), void (*epilogue)(const char *)) {
+	prologue_hook = prologue;
+	epilogue_hook = epilogue;
+}
+
+static void wrapper_prologue(const char *symbol) {
+	if (prologue_hook) {
+		prologue_hook(symbol);
+	}
+}
+static void wrapper_epilogue(const char *symbol) {
+	if (epilogue_hook) {
+		epilogue_hook(symbol);
+	}
+}
+
+static void *get_handle() {
+	static void *the_handle = NULL;
+
+	if (SOL_UNLIKELY(!the_handle)) {
+		the_handle = dlopen(global_libpath, RTLD_LOCAL | RTLD_LAZY);
+		if (!the_handle) {
+			fprintf(stderr, "Wrapper: Failed to load \"libsoletta\"\n");
+			abort();
+		}
+	}
+
+	return the_handle;
+}

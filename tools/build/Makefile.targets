@@ -3,10 +3,17 @@ tests: $(SOL_LIB_OUTPUT) $(tests-out) $(modules-out)
 CHECK_DEPS := tests
 
 ifneq ($(USE_NODEJS),)
-check-nodejs_bindings: nodejs_bindings
-	LD_PRELOAD=$(LIB_ASAN_PATH) node -p 'require( "./lowlevel" ).sol_platform_get_machine_id();'
+check-nodejs_bindings: nodejs_bindings $(SOL_LIB_WRAPPER)
+	node $(NODEJS_ROOT)/tests/suite.js "$(LIB_ASAN_PATH) $(SOL_LIB_WRAPPER)"
 CHECK_DEPS += check-nodejs_bindings
 PHONY += check-nodejs_bindings
+endif
+
+ifneq ($(HAVE_NODEJS),)
+$(SOL_LIB_WRAPPER): $(NODEJS_ROOT)/generated/libsoletta_wrapper.c
+	$(HOSTCC) -fPIC -shared $(addprefix -I,$(HEADERDIRS)) -o $@ $<
+$(NODEJS_ROOT)/generated/libsoletta_wrapper.c: $(SOL_LIB_OUTPUT) $(NODEJS_ROOT)/generate-wrapper.js $(NODEJS_ROOT)/generate-wrapper.sh $(NODEJS_ROOT)/generated/libsoletta_wrapper.c.prologue
+	$(NODEJS_ROOT)/generate-wrapper.sh $(SOL_LIB_OUTPUT) $(abspath $(HEADERDIRS))
 endif
 
 check: $(CHECK_DEPS)

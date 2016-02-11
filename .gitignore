@@ -24,3 +24,4 @@ config.log*
 /node_modules/
 /bindings/nodejs/generated/main.cc
 /bindings/nodejs/generated/main.h
+bindings/nodejs/generated/libsoletta_wrapper.c
