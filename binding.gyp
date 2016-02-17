@@ -44,6 +44,7 @@
 					"sources": [
 						"bindings/nodejs/generated/main.cc",
 						"bindings/nodejs/src/async-bridge.cc",
+						"bindings/nodejs/src/bridge2.cc",
 						"bindings/nodejs/src/data.cc",
 						"bindings/nodejs/src/hijack.c",
 						"bindings/nodejs/src/test-hook.c",
@@ -65,9 +66,9 @@
 					"include_dirs": [
 						"<!(node -e \"require('nan')\")"
 					],
-					"cflags": [ '<(SOLETTA_CFLAGS)' ],
+					"cflags": [ '<(SOLETTA_CFLAGS)', '-std=c++11' ],
 					"xcode_settings": {
-						"OTHER_CFLAGS": [ '<(SOLETTA_CFLAGS)' ]
+						"OTHER_CFLAGS": [ '<(SOLETTA_CFLAGS)', '-std=c++11' ]
 					},
 					"libraries": [ '<(SOLETTA_LIBS)' ],
 					"dependencies": [ "collectbindings" ]
