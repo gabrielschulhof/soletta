@@ -44,10 +44,19 @@
  *      var w = function() {};
  *      var x = setInterval( w, 1000 );
  *      x = undefined;
- *    Now, there is no way to clearInterval(x), and a reference to w leaks.
+ *    Now, there is no way to clearInterval(x).
  *
- *    Implementation: Add a weak callback to the key and remove it from the
- *    lookup. This is only possible for Object-typed persistents.
+ *    Note: This makes it possible to issue a SOL_WRN() when Nan::Callback*
+ *    lists become unreachable by adding a weak callback to the persistents we
+ *    keep.
+ * 3. The AsyncBridge is a one-to-many map of persistent handles to lists of
+ *    callbacks.
+ * X. Persistent Object handles are weak, and the keys they represent are
+ *    removed from the map when they are garbage-collected.
+ * 5. The keys representing the persistent handles are removed from the map
+ *    when they no longer refer to any lists of callbacks.
+ * 6. A list of callbacks is referred to by a unique combination of keys.
+ *
  * Use cases:
  * 1. Make the same call twice and later remove:
  *    bridge.add( [ key1, key2 ], theFunction);
@@ -55,19 +64,19 @@
  *    ...
  *    bridge.remove( [ key1, key2 ], theFunction);
  *    The remove() call removes the first instance of theFunction.
- *
- * 3. The AsyncBridge is a one-to-many map of persistent handles to lists of
- *    callbacks.
- * 4. Persistent Object handles are weak, and the keys they represent are
- *    removed from the map when they are garbage-collected.
- * 5. The keys representing the persistent handles are removed from the map
- *    when they no longer refer to any lists of callbacks.
- * 6. A list of callbacks is referred to by a unique combination of keys.
  */
 
 using namespace v8;
 
-typedef struct _KeyNode KeyNode;
+typedef std::set<BridgeNode *> BridgeNodes;
+
+class KeyNode {
+public:
+	KeyNode(Local<Value> _key);
+	~KeyNode();
+	Nan::Persistent<Value> *key;
+	BridgeNodes references;
+};
 
 struct KeysNotEqual {
 	bool operator()(const KeyNode *left, const KeyNode *right) const;
@@ -75,40 +84,28 @@ struct KeysNotEqual {
 
 typedef std::set<KeyNode *, KeysNotEqual> Keys;
 typedef std::list<Nan::Callback *> Callbacks;
-typedef std::set<BridgeNode *> BridgeNodes;
 
-struct _BridgeNode {
-	_BridgeNode(Keys & _backReferences, Nan::Callback *callback);
-	~_BridgeNode();
+class BridgeNode {
+public:
+	BridgeNode(Keys & _backReferences, Nan::Callback *callback);
+	~BridgeNode();
 	Nan::Callback *findCallback(Local<Function> jsCallback);
 	void removeCallback(Nan::Callback *callback);
 	Callbacks callbacks;
 	Keys backReferences;
 };
 
-struct _KeyNode {
-	bool operator==(const KeyNode & other) const;
-	_KeyNode(Local<Value> _key);
-	~_KeyNode();
-	Nan::Persistent<Value> *key;
-	BridgeNodes references;
-};
-
 static Keys lookup;
 
 bool KeysNotEqual::operator()(const KeyNode *left,
 	const KeyNode *right) const {
-	return (!((*left) == (*right)));
+	return (!Nan::Equals(Nan::New<Value>(*(left->key)),
+		Nan::New<Value>(*(right->key))).FromJust());
 }
 
-bool _KeyNode::operator==(const KeyNode & other) const {
-	return Nan::Equals(Nan::New<Value>(*key),
-		Nan::New<Value>(*(other.key))).FromJust();
-}
+KeyNode::KeyNode(Local<Value> _key): key(new Nan::Persistent<Value>(_key)) {}
 
-_KeyNode::_KeyNode(Local<Value> _key): key(new Nan::Persistent<Value>(_key)) {}
-
-_KeyNode::~_KeyNode() {
+KeyNode::~KeyNode() {
 	if (references.size() > 0) {
 		lookup.erase(this);
 		BridgeNodes toRemove;
@@ -132,7 +129,7 @@ _KeyNode::~_KeyNode() {
 	delete key;
 }
 
-_BridgeNode::_BridgeNode(Keys & _backReferences,
+BridgeNode::BridgeNode(Keys & _backReferences,
 	Nan::Callback *callback): backReferences(_backReferences) {
 	callbacks.push_back(callback);
 	for (Keys::iterator iter = backReferences.begin();
@@ -142,7 +139,7 @@ _BridgeNode::_BridgeNode(Keys & _backReferences,
 	}
 }
 
-_BridgeNode::~_BridgeNode() {
+BridgeNode::~BridgeNode() {
 	Keys keysToErase;
 	for (Keys::iterator iter = backReferences.begin();
 			iter != backReferences.end();) {
@@ -161,7 +158,7 @@ _BridgeNode::~_BridgeNode() {
 	}
 }
 
-Nan::Callback *_BridgeNode::findCallback(Local<Function> jsCallback) {
+Nan::Callback *BridgeNode::findCallback(Local<Function> jsCallback) {
 	Nan::Callback compareValue(jsCallback);
 
 	for (Callbacks::iterator iter = callbacks.begin(); iter != callbacks.end();
@@ -174,7 +171,7 @@ Nan::Callback *_BridgeNode::findCallback(Local<Function> jsCallback) {
 	return 0;
 }
 
-void _BridgeNode::removeCallback(Nan::Callback *callback) {
+void BridgeNode::removeCallback(Nan::Callback *callback) {
 	for (Callbacks::iterator iter = callbacks.begin(); iter != callbacks.end();
 			iter++) {
 		if ((**iter) == *callback) {

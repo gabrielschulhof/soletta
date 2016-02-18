@@ -36,7 +36,7 @@
 #include <utility>
 #include <nan.h>
 
-typedef struct _BridgeNode BridgeNode;
+class BridgeNode;
 
 void async_bridge_add(int keyCount, v8::Local<v8::Value> keys[], Nan::Callback *callback);
 Nan::Callback *async_bridge_get(int keyCount, v8::Local<v8::Value> keys[], v8::Local<v8::Function> jsCallback, BridgeNode **bridgeNode);
