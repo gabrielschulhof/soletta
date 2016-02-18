@@ -44,6 +44,7 @@
 					"sources": [
 						"bindings/nodejs/generated/main.cc",
 						"bindings/nodejs/src/async-bridge.cc",
+						"bindings/nodejs/src/bridge.cc",
 						"bindings/nodejs/src/data.cc",
 						"bindings/nodejs/src/hijack.c",
 						"bindings/nodejs/src/test-hook.c",
