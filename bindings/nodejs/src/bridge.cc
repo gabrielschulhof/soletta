@@ -77,7 +77,6 @@ typedef std::set<KeyNode *, KeysNotEqual> Keys;
 typedef std::list<Nan::Callback *> Callbacks;
 typedef std::set<BridgeNode *> BridgeNodes;
 
-
 struct _BridgeNode {
 	_BridgeNode(Keys & _backReferences, Nan::Callback *callback);
 	~_BridgeNode();
@@ -213,6 +212,11 @@ static bool initKeyNodes(int keyCount, Local<Value>keys[], Keys & keyNodes,
 }
 
 static BridgeNode *findBridge(Keys & keyNodes) {
+
+	// It's enough to look through the bridges associated with the first key,
+	// because if there's a bridge referring back to all the keys in keyNodes,
+	// we will find a reference to that same bridge in all the other members of
+	// keyNodes.
 	KeyNode *oneKey = *(keyNodes.begin());
 	for (BridgeNodes::iterator iter = oneKey->references.begin();
 			iter != oneKey->references.end();
@@ -224,9 +228,6 @@ static BridgeNode *findBridge(Keys & keyNodes) {
 	return 0;
 }
 
-_BridgeCallback::_BridgeCallback(Nan::Callback *_callback,
-	BridgeNode *_theBridge): callback(_callback), theBridge(_theBridge) {}
-
 void async_bridge_add(int keyCount, v8::Local<v8::Value> keys[],
 	Nan::Callback *callback) {
 
@@ -236,36 +237,26 @@ void async_bridge_add(int keyCount, v8::Local<v8::Value> keys[],
 	}
 
 	Keys keyNodes;
-	bool needsNewBridge = false;
 
-	// Initialize keyNodes
-	needsNewBridge = initKeyNodes(keyCount, keys, keyNodes, true);
-
-	// If all the keys were already in the lookup, we need to find a bridge
-	// to which they all refer. It's enough to check the bridge nodes of the
-	// first key, because the bridge node will have references back to the
-	// other keys we want.
-	if (!needsNewBridge) {
+	// If no new keys were created, we look for an existing bridge
+	if (!initKeyNodes(keyCount, keys, keyNodes, true)) {
 		BridgeNode *theBridge = findBridge(keyNodes);
 		if (theBridge) {
 			theBridge->callbacks.push_back(callback);
-		} else {
-			needsNewBridge = true;
+			goto done;
 		}
 	}
 
-	// The easy case - insertion. We need not save the new object, because it
-	// adds references to itself to all the keyNodes which, in turn, are stored
-	// in the lookup.
-	if (needsNewBridge) {
-		new BridgeNode(keyNodes, callback);
-	}
-
+	// If we don't find a bridge, we make a new one. We need not save the new
+	// object, because it adds references to itself to all the keyNodes which,
+	// in turn, are stored in the lookup.
+	new BridgeNode(keyNodes, callback);
+done:
 	hijack_ref();
 }
 
-BridgeCallback *async_bridge_get(int keyCount, v8::Local<v8::Value> keys[],
-	Local<Function> jsCallback) {
+Nan::Callback *async_bridge_get(int keyCount, v8::Local<v8::Value> keys[],
+	Local<Function> jsCallback, BridgeNode **bridgeNode) {
 
 	if (keyCount <= 0) {
 		Nan::ThrowError("async_bridge_get: keyCount <= 0");
@@ -290,13 +281,14 @@ BridgeCallback *async_bridge_get(int keyCount, v8::Local<v8::Value> keys[],
 		return 0;
 	}
 
-	return new BridgeCallback(theCallback, theBridge);
+	*bridgeNode = theBridge;
+	return theCallback;
 }
 
-void async_bridge_remove(BridgeCallback *bridgeCallback) {
-	bridgeCallback->theBridge->removeCallback(bridgeCallback->callback);
-	if (bridgeCallback->theBridge->callbacks.size() == 0) {
-		delete bridgeCallback->theBridge;
+void async_bridge_remove(BridgeNode *theBridge, Nan::Callback *callback) {
+	theBridge->removeCallback(callback);
+	if (theBridge->callbacks.size() == 0) {
+		delete theBridge;
 	}
 	hijack_unref();
 }

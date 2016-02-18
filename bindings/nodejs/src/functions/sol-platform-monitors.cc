@@ -96,17 +96,17 @@ NAN_METHOD(bind_sol_platform_del_hostname_monitor) {
 	VALIDATE_ARGUMENT_COUNT(info, 1);
 	VALIDATE_ARGUMENT_TYPE(info, 0, IsFunction);
 	Local<Value> key[1] = {Nan::New("platform.hostname").ToLocalChecked()};
-	BridgeCallback *bridgeCallback = async_bridge_get(1, key,
-		Local<Function>::Cast(info[0]));
-	if (!bridgeCallback) {
+	BridgeNode *theBridge = 0;
+	Nan::Callback *callback = async_bridge_get(1, key,
+		Local<Function>::Cast(info[0]), &theBridge);
+	if (!callback) {
 		return;
 	}
 	int result = sol_platform_del_hostname_monitor(defaultHostnameMonitor,
-		bridgeCallback->callback);
+		callback);
 	if (!result) {
-		async_bridge_remove(bridgeCallback);
+		async_bridge_remove(theBridge, callback);
 	}
-	delete bridgeCallback;
 	info.GetReturnValue().Set(Nan::New(result));
 }
 

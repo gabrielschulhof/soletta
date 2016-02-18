@@ -37,14 +37,9 @@
 #include <nan.h>
 
 typedef struct _BridgeNode BridgeNode;
-typedef struct _BridgeCallback {
-    _BridgeCallback(Nan::Callback * _callback, BridgeNode * _theBridge);
-    Nan::Callback *callback;
-    BridgeNode *theBridge;
-} BridgeCallback;
 
 void async_bridge_add(int keyCount, v8::Local<v8::Value> keys[], Nan::Callback *callback);
-BridgeCallback *async_bridge_get(int keyCount, v8::Local<v8::Value> keys[], v8::Local<v8::Function> jsCallback);
-void async_bridge_remove(BridgeCallback *bridgeCallback);
+Nan::Callback *async_bridge_get(int keyCount, v8::Local<v8::Value> keys[], v8::Local<v8::Function> jsCallback, BridgeNode **bridgeNode);
+void async_bridge_remove(BridgeNode *theBridge, Nan::Callback *callback);
 
 #endif /* ndef __SOLETTA_NODEJS_BRIDGE_H__ */
