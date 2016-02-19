@@ -33,211 +33,169 @@
 #include <nan.h>
 #include "../data.h"
 #include "../common.h"
-#include "../async-bridge.h"
 #include "../bridge.h"
 
 #include <sol-platform.h>
 
 using namespace v8;
 
-#define MONITOR_BODY(eventNameVariable, wantedCount, opName, callStatement) \
-	do { \
-		int returnValue = 0; \
-		Local<String> eventName = Nan::New((eventNameVariable)) \
-			.ToLocalChecked(); \
-		if (async_bridge_get_listener_count(eventName) == (wantedCount)) { \
-			returnValue = (callStatement); \
-		} \
-\
-		if (returnValue == 0) { \
-			async_bridge_ ## opName(eventName, Local<Function>::Cast(info[0])); \
-		} \
-\
-		info.GetReturnValue().Set(Nan::New(returnValue)); \
-	} while(0)
-
-#define MONITOR_BODY_FULL(eventNameVariable, wantedCount, opName, callStatement) \
+#define ADD_MONITOR(prefix, marshaller) \
 	do { \
 		VALIDATE_ARGUMENT_COUNT(info, 1); \
 		VALIDATE_ARGUMENT_TYPE(info, 0, IsFunction); \
-		MONITOR_BODY(eventNameVariable, wantedCount, opName, callStatement); \
+		Nan::Callback *callback = \
+			new Nan::Callback(Local<Function>::Cast(info[0])); \
+		int result = sol_platform_add_##prefix##_monitor((marshaller), \
+			callback); \
+		if (result) { \
+			delete callback; \
+		} else { \
+			Local<Value> key[1] = {Nan::New("platform." #prefix) \
+				.ToLocalChecked()}; \
+			async_bridge_add(1, key, callback); \
+		} \
+		info.GetReturnValue().Set(Nan::New(result)); \
 	} while(0)
 
-static const char *hostnameEvent = "platform.hostname";
-static const char *timezoneEvent = "platform.timezone";
-static const char *stateEvent = "platform.state";
-static const char *localeEvent = "platform.locale";
-static const char *systemClockEvent = "platform.systemclock";
+#define DEL_MONITOR(prefix, marshaller) \
+	do { \
+		VALIDATE_ARGUMENT_COUNT(info, 1); \
+		VALIDATE_ARGUMENT_TYPE(info, 0, IsFunction); \
+		Local<Value> key[1] = { \
+			Nan::New("platform." #prefix) .ToLocalChecked() \
+		}; \
+		BridgeNode *theBridge = 0; \
+		Nan::Callback *callback = async_bridge_get(1, key, \
+			Local<Function>::Cast(info[0]), &theBridge); \
+		if (!callback) { \
+			return; \
+		} \
+		int result = sol_platform_del_##prefix##_monitor((marshaller), \
+			callback); \
+		if (!result) { \
+			async_bridge_remove(theBridge, callback); \
+			delete callback; \
+		} \
+		info.GetReturnValue().Set(Nan::New(result)); \
+	} while(0)
 
-static void defaultHostnameMonitor(void *data, const char *newHostName) {
-	Local<Value> arguments[1] = {
-		Nan::New(newHostName).ToLocalChecked()
-	};
+static void stringMonitor(void *data, const char *theString) {
+	Nan::HandleScope scope;
+	Local<Value> arguments[1] = {Nan::New(theString).ToLocalChecked()};
 	((Nan::Callback *)data)->Call(1, arguments);
 }
 
 NAN_METHOD(bind_sol_platform_add_hostname_monitor) {
-	VALIDATE_ARGUMENT_COUNT(info, 1);
+	ADD_MONITOR(hostname, stringMonitor);
+}
+
+NAN_METHOD(bind_sol_platform_del_hostname_monitor) {
+	DEL_MONITOR(hostname, stringMonitor);
+}
+
+NAN_METHOD(bind_sol_platform_add_timezone_monitor) {
+	ADD_MONITOR(timezone, stringMonitor);
+}
+
+NAN_METHOD(bind_sol_platform_del_timezone_monitor) {
+	DEL_MONITOR(timezone, stringMonitor);
+}
+
+static void stateMonitor(void *data, enum sol_platform_state theState) {
+	Nan::HandleScope scope;
+	Local<Value> arguments[1] = {Nan::New(theState)};
+	((Nan::Callback *)data)->Call(1, arguments);
+}
+
+NAN_METHOD(bind_sol_platform_add_state_monitor) {
+	ADD_MONITOR(state, stateMonitor);
+}
+
+NAN_METHOD(bind_sol_platform_del_state_monitor) {
+	DEL_MONITOR(state, stateMonitor);
+}
+
+static void systemClockMonitor(void *data, int64_t theTimestamp) {
+	Nan::HandleScope scope;
+	Local<Value> arguments[1] = {
+		Nan::New<Date>((double)theTimestamp).ToLocalChecked()
+	};
+	((Nan::Callback *)data)->Call(1, arguments);
+}
+
+NAN_METHOD(bind_sol_platform_add_system_clock_monitor) {
+	ADD_MONITOR(system_clock, systemClockMonitor);
+}
+
+NAN_METHOD(bind_sol_platform_del_system_clock_monitor) {
+	DEL_MONITOR(system_clock, systemClockMonitor);
+}
+
+static void localeMonitor(void *data,
+	enum sol_platform_locale_category category, const char *locale) {
+	Nan::HandleScope scope;
+	Local<Value> arguments[2] = {
+		Nan::New(category),
+		Nan::New(locale).ToLocalChecked()
+	};
+	((Nan::Callback *)data)->Call(2, arguments);
+}
+
+NAN_METHOD(bind_sol_platform_add_locale_monitor) {
+	ADD_MONITOR(locale, localeMonitor);
+}
+
+NAN_METHOD(bind_sol_platform_del_locale_monitor) {
+	DEL_MONITOR(locale, localeMonitor);
+}
+
+static void serviceMonitor(void *data, const char *service,
+	enum sol_platform_service_state state) {
+	Nan::HandleScope scope;
+	Local<Value> arguments[2] = {
+		Nan::New(service).ToLocalChecked(),
+		Nan::New(state)
+	};
+	((Nan::Callback *)data)->Call(2, arguments);
+}
+
+NAN_METHOD(bind_sol_platform_add_service_monitor) {
+	VALIDATE_ARGUMENT_COUNT(info, 2);
 	VALIDATE_ARGUMENT_TYPE(info, 0, IsFunction);
+	VALIDATE_ARGUMENT_TYPE(info, 1, IsString);
 	Nan::Callback *callback =
 		new Nan::Callback(Local<Function>::Cast(info[0]));
-	int result = sol_platform_add_hostname_monitor(defaultHostnameMonitor,
-		callback);
+	int result = sol_platform_add_service_monitor(serviceMonitor,
+		(const char *)*(String::Utf8Value(info[1])), callback);
 	if (!result) {
-		Local<Value> key[1] = {Nan::New("platform.hostname").ToLocalChecked()};
-		async_bridge_add(1, key, callback);
-	} else {
-		delete callback;
+		Local<Value> keys[2] = {
+			Nan::New("platform.service").ToLocalChecked(),
+			info[1]
+		};
+		async_bridge_add(2, keys, callback);
 	}
 	info.GetReturnValue().Set(Nan::New(result));
 }
 
-NAN_METHOD(bind_sol_platform_del_hostname_monitor) {
-	VALIDATE_ARGUMENT_COUNT(info, 1);
+NAN_METHOD(bind_sol_platform_del_service_monitor) {
+	VALIDATE_ARGUMENT_COUNT(info, 2);
 	VALIDATE_ARGUMENT_TYPE(info, 0, IsFunction);
-	Local<Value> key[1] = {Nan::New("platform.hostname").ToLocalChecked()};
+	VALIDATE_ARGUMENT_TYPE(info, 1, IsString);
+	Local<Value> keys[2] = {
+		Nan::New("platform.service").ToLocalChecked(),
+		info[1]
+	};
 	BridgeNode *theBridge = 0;
-	Nan::Callback *callback = async_bridge_get(1, key,
+	Nan::Callback *callback = async_bridge_get(2, keys,
 		Local<Function>::Cast(info[0]), &theBridge);
 	if (!callback) {
 		return;
 	}
-	int result = sol_platform_del_hostname_monitor(defaultHostnameMonitor,
-		callback);
+	int result = sol_platform_del_service_monitor(serviceMonitor,
+		(const char *)*(String::Utf8Value(info[1])), callback);
 	if (!result) {
 		async_bridge_remove(theBridge, callback);
+		delete callback;
 	}
 	info.GetReturnValue().Set(Nan::New(result));
-}
-
-static void defaultStringMonitor(void *data, const char *theString) {
-	Nan::HandleScope scope;
-	Local<Value> jsCallbackArguments[2] = {
-		Nan::New((const char *)data).ToLocalChecked(),
-		Nan::New(theString).ToLocalChecked()
-	};
-	async_bridge_call(2, jsCallbackArguments);
-}
-
-/*
-NAN_METHOD(bind_sol_platform_add_hostname_monitor) {
-	MONITOR_BODY_FULL(hostnameEvent, 0, add,
-		sol_platform_add_hostname_monitor(defaultStringMonitor,
-			hostnameEvent));
-}
-
-NAN_METHOD(bind_sol_platform_del_hostname_monitor) {
-	MONITOR_BODY_FULL(hostnameEvent, 1, del,
-		sol_platform_del_hostname_monitor(defaultStringMonitor,
-			hostnameEvent));
-}
-*/
-NAN_METHOD(bind_sol_platform_add_timezone_monitor) {
-	MONITOR_BODY_FULL(timezoneEvent, 0, add,
-		sol_platform_add_timezone_monitor(defaultStringMonitor,
-			timezoneEvent));
-}
-
-NAN_METHOD(bind_sol_platform_del_timezone_monitor) {
-	MONITOR_BODY_FULL(timezoneEvent, 1, del,
-		sol_platform_del_timezone_monitor(defaultStringMonitor,
-			timezoneEvent));
-}
-
-static void defaultLocaleMonitor(void *data, enum sol_platform_locale_category localeCategory, const char *localeValue) {
-	Nan::HandleScope scope;
-	Local<Value> jsCallbackArguments[3] = {
-		Nan::New((const char *)data).ToLocalChecked(),
-		Nan::New((int)localeCategory),
-		Nan::New(localeValue).ToLocalChecked()
-	};
-	async_bridge_call(3, jsCallbackArguments);
-}
-
-NAN_METHOD(bind_sol_platform_add_locale_monitor) {
-	MONITOR_BODY_FULL(localeEvent, 0, add,
-		sol_platform_add_locale_monitor(defaultLocaleMonitor, localeEvent));
-}
-
-NAN_METHOD(bind_sol_platform_del_locale_monitor) {
-	MONITOR_BODY_FULL(localeEvent, 1, del,
-		sol_platform_del_locale_monitor(defaultLocaleMonitor, localeEvent));
-}
-
-void defaultServiceMonitor(void *data, const char *service, enum sol_platform_service_state state) {
-	Nan::HandleScope scope;
-	char serviceEvent[1024] = "";
-
-	snprintf(serviceEvent, 1023, "platform.service.%s", service);
-
-	Local<Value> jsCallbackArguments[3] = {
-		Nan::New(serviceEvent).ToLocalChecked(),
-		Nan::New(service).ToLocalChecked(),
-		Nan::New((int)state)
-	};
-	async_bridge_call(3, jsCallbackArguments);
-}
-
-#define MONITOR_BODY_SERVICE(wantedCount, opName) \
-	do { \
-		VALIDATE_ARGUMENT_COUNT(info, 2); \
-		VALIDATE_ARGUMENT_TYPE(info, 0, IsFunction); \
-		VALIDATE_ARGUMENT_TYPE(info, 1, IsString); \
-\
-		char serviceEvent[1024] = ""; \
-		String::Utf8Value jsService(info[1]); \
-		snprintf(serviceEvent, 1023, "platform.service.%s", \
-			(const char *)*jsService); \
-\
-		MONITOR_BODY(serviceEvent, 0, add, \
-			sol_platform_ ## opName ## _service_monitor( \
-				defaultServiceMonitor, (const char *)*jsService, NULL)); \
-	} while(0)
-
-NAN_METHOD(bind_sol_platform_add_service_monitor) {
-	MONITOR_BODY_SERVICE(0, add);
-}
-
-NAN_METHOD(bind_sol_platform_del_service_monitor) {
-	MONITOR_BODY_SERVICE(1, add);
-}
-
-static void defaultStateMonitor(void *data, enum sol_platform_state theState) {
-	Nan::HandleScope scope;
-	Local<Value> jsCallbackArguments[2] = {
-		Nan::New((const char *)data).ToLocalChecked(),
-		Nan::New(theState)
-	};
-	async_bridge_call(2, jsCallbackArguments);
-}
-
-NAN_METHOD(bind_sol_platform_add_state_monitor) {
-	MONITOR_BODY_FULL(stateEvent, 0, add,
-		sol_platform_add_state_monitor(defaultStateMonitor, stateEvent));
-}
-
-NAN_METHOD(bind_sol_platform_del_state_monitor) {
-	MONITOR_BODY_FULL(stateEvent, 1, del,
-		sol_platform_del_state_monitor(defaultStateMonitor, stateEvent));
-}
-
-static void defaultSystemClockMonitor(void *data, int64_t theTimestamp) {
-	Nan::HandleScope scope;
-	Local<Value> jsCallbackArguments[2] = {
-		Nan::New((const char *)data).ToLocalChecked(),
-		Nan::New<Date>((double)theTimestamp).ToLocalChecked()
-	};
-	async_bridge_call(2, jsCallbackArguments);
-}
-
-NAN_METHOD(bind_sol_platform_add_system_clock_monitor) {
-	MONITOR_BODY_FULL(systemClockEvent, 0, add,
-		sol_platform_add_system_clock_monitor(defaultSystemClockMonitor,
-			systemClockEvent));
-}
-
-NAN_METHOD(bind_sol_platform_del_system_clock_monitor) {
-	MONITOR_BODY_FULL(systemClockEvent, 1, del,
-		sol_platform_del_system_clock_monitor(defaultSystemClockMonitor,
-			systemClockEvent));
 }
