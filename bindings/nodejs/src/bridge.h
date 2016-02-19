@@ -33,7 +33,6 @@
 #ifndef __SOLETTA_NODEJS_BRIDGE_H__
 #define __SOLETTA_NODEJS_BRIDGE_H__
 
-#include <utility>
 #include <nan.h>
 
 class BridgeNode;

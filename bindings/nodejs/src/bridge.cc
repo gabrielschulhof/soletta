@@ -109,19 +109,17 @@ KeyNode::~KeyNode() {
 	if (references.size() > 0) {
 		lookup.erase(this);
 		BridgeNodes toRemove;
-		for (BridgeNodes::iterator iter = references.begin();
-				iter != references.end();) {
+		BridgeNodes::iterator iter;
+		for (iter = references.begin(); iter != references.end();) {
 			(*iter)->backReferences.erase(this);
 			if ((*iter)->backReferences.size() == 0) {
 				toRemove.insert(*(iter));
 				references.erase(iter++);
-			} else {
-				++iter;
+				continue;
 			}
+			++iter;
 		}
-		for (BridgeNodes::iterator iter = toRemove.begin();
-			iter != toRemove.end();
-			iter++) {
+		for (iter = toRemove.begin(); iter != toRemove.end(); iter++) {
 			delete *iter;
 		}
 	}
@@ -141,19 +139,17 @@ BridgeNode::BridgeNode(Keys & _backReferences,
 
 BridgeNode::~BridgeNode() {
 	Keys keysToErase;
-	for (Keys::iterator iter = backReferences.begin();
-			iter != backReferences.end();) {
+	Keys::iterator iter;
+	for (iter = backReferences.begin(); iter != backReferences.end();) {
 		(*iter)->references.erase(this);
 		if ((*iter)->references.size() == 0) {
 			keysToErase.insert(*iter);
 			backReferences.erase(iter++);
-		} else {
-			++iter;
+			continue;
 		}
+		++iter;
 	}
-	for (Keys::iterator iter = keysToErase.begin();
-			iter != keysToErase.end();
-			iter++) {
+	for (iter = keysToErase.begin(); iter != keysToErase.end(); iter++) {
 		delete *iter;
 	}
 }
