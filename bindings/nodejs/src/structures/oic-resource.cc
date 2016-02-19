@@ -333,3 +333,79 @@ SolOicResource::SolOicResource(
 SolOicResource::~SolOicResource() {
 	Empty();
 }
+
+static Local<Array> js_sol_string_slice_array(struct sol_vector *vector) {
+	Local<Array> jsArray = Nan::New<Array>(vector->len);
+	sol_str_slice *slice;
+	int index;
+	SOL_VECTOR_FOREACH_IDX(vector, slice, index) {
+		jsArray->Set(index, Nan::New<String>(slice->data, slice->len)
+			.ToLocalChecked());
+	}
+	return jsArray;
+}
+
+void resourceIsGone(
+	const Nan::WeakCallbackInfo< Nan::Persistent<Object> > & data) {
+	Nan::Persistent<Object> *persistent = data.GetParameter();
+
+	Local<Object> jsResource = Nan::New<Object>(*persistent);
+	struct sol_oic_resource *resource =
+		(struct sol_oic_resource *)Nan::GetInternalFieldPointer(jsResource, 0);
+	sol_oic_resource_unref(resource);
+
+	persistent->ClearWeak();
+	persistent->Reset();
+	delete persistent;
+}
+
+#define SET_PROPERTY_READONLY(destination, property, value) \
+	Nan::ForceSet((destination), Nan::New(#property).ToLocalChecked(), \
+		(value), \
+		(v8::PropertyAttribute)(v8::ReadOnly | v8::DontDelete));
+
+Local<Object> js_sol_oic_resource(struct sol_oic_resource *resource) {
+
+	// Establish the function template
+	static Nan::Persistent<FunctionTemplate> myTemplate;
+	if (SOL_UNLIKELY(myTemplate.IsEmpty())) {
+		Local<FunctionTemplate> theTemplate = Nan::New<FunctionTemplate>();
+		theTemplate->SetClassName(Nan::New("SolOicResource").ToLocalChecked());
+		theTemplate->InstanceTemplate()->SetInternalFieldCount(1);
+		myTemplate.Reset(theTemplate);
+		Nan::Set(Nan::GetFunction(theTemplate).ToLocalChecked(),
+			Nan::New("displayName").ToLocalChecked(),
+			Nan::New("SolOicResource").ToLocalChecked());
+	}
+
+	// Create the object, including a weak reference that unrefs the resource
+	Local<Object> jsResource =
+		Nan::GetFunction(Nan::New(myTemplate)).ToLocalChecked()->NewInstance();
+	Nan::SetInternalFieldPointer(jsResource, 0, resource);
+	sol_oic_resource_ref(resource);
+	Nan::Persistent<Object> *persistent =
+		new Nan::Persistent<Object>(jsResource);
+	persistent->SetWeak(persistent, resourceIsGone,
+		Nan::WeakCallbackType::kParameter);
+
+	SET_PROPERTY_READONLY(jsResource, addr, 
+		js_sol_network_link_addr(&(resource->addr)));
+	SET_PROPERTY_READONLY(jsResource, device_id, 
+		Nan::New<String>(resource->device_id.data, resource->device_id.len)
+			.ToLocalChecked());
+	SET_PROPERTY_READONLY(jsResource, href,
+		Nan::New<String>(resource->href.data, resource->href.len)
+			.ToLocalChecked());
+	SET_PROPERTY_READONLY(jsResource, interfaces,
+		js_sol_string_slice_array(&(resource->interfaces)));
+	SET_PROPERTY_READONLY(jsResource, is_observing,
+		Nan::New(resource->is_observing));
+	SET_PROPERTY_READONLY(jsResource, observable,
+		Nan::New(resource->observable));
+	SET_PROPERTY_READONLY(jsResource, secure,
+		Nan::New(resource->secure));
+	SET_PROPERTY_READONLY(jsResource, types,
+		js_sol_string_slice_array(&(resource->types)));
+
+	return jsResource;
+}

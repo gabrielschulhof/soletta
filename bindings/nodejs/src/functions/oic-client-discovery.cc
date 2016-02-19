@@ -48,7 +48,7 @@ static bool sol_oic_client_find_resource_callback(struct sol_oic_client *cli, st
 
 	Local<Value> arguments[1];
 	if (resource) {
-		arguments[0] = SolOicResource::New(resource);
+		arguments[0] = js_sol_oic_resource(resource);
 	} else {
 		arguments[0] = Nan::Null();
 	}

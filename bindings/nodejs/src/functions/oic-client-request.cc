@@ -33,7 +33,6 @@
 #include <nan.h>
 #include <sol-oic-client.h>
 
-#include "../async-bridge.h"
 #include "../common.h"
 #include "../hijack.h"
 #include "../structures/network-link-addr.h"

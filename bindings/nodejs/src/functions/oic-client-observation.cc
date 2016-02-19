@@ -33,7 +33,7 @@
 #include <nan.h>
 #include <sol-oic-client.h>
 
-#include "../async-bridge.h"
+#include "../bridge.h"
 #include "../common.h"
 #include "../structures/network-link-addr.h"
 #include "oic-client.h"
@@ -42,107 +42,87 @@
 
 using namespace v8;
 
-static void resourceObserver(RECEIVER_SIGNATURE, const char *eventPrefix) {
+typedef bool (*observeAPI)(struct sol_oic_client *, struct sol_oic_resource *,
+	void(*)(RECEIVER_SIGNATURE), const void *data, bool);
+
+static void resourceObserver(RECEIVER_SIGNATURE) {
 	Nan::HandleScope scope;
-	char eventName[256] = "";
-	snprintf(eventName, 255, "oic.client.observe.%s.%p", eventPrefix, data);
-	Local<Value> arguments[4];
-	arguments[0] = Nan::New(eventName).ToLocalChecked();
-	arguments[1] = Nan::New(responseCode);
+	Local<Value> arguments[3] = {
+		Nan::New(responseCode)
+	};
 	if (address) {
-		arguments[2] = js_sol_network_link_addr(address);
+		arguments[1] = js_sol_network_link_addr(address);
+	} else {
+		arguments[1] = Nan::Null();
+	}
+	if (representation) {
+		arguments[2] = js_sol_oic_map_reader(representation);
 	} else {
 		arguments[2] = Nan::Null();
 	}
-	if (representation) {
-		arguments[3] = js_sol_oic_map_reader(representation);
-	} else {
-		arguments[3] = Nan::Null();
+	((Nan::Callback *)data)->Call(3, arguments);
+}
+
+static bool do_observe(Local<Object> jsResource, Local<Function> jsCallback,
+	bool startObserving, bool isConfirmable, bool *result) {
+
+	struct sol_oic_resource *resource =
+		(struct sol_oic_resource *)Nan::GetInternalFieldPointer(jsResource, 0);
+	if (!resource) {
+		Nan::ThrowError("Failed to retrieve native resource from JS object");
+		return false;
+	}
+
+	observeAPI solAPI = isConfirmable ? sol_oic_client_resource_set_observable:
+		sol_oic_client_resource_set_observable_non_confirmable;
+	Nan::Callback *callback = 0;
+	Local<Value> keys[3] = {
+		jsResource,
+		Nan::New("observe").ToLocalChecked(),
+		Nan::New(isConfirmable)
 	};
-
-	async_bridge_call(4, arguments);
-}
-
-static void defaultNonConfirmingResourceObserver(RECEIVER_SIGNATURE) {
-	resourceObserver(responseCode, client, address, representation, data,
-		"nonconfirm");
-}
-
-static void defaultConfirmingResourceObserver(RECEIVER_SIGNATURE) {
-	resourceObserver(responseCode, client, address, representation, data,
-		"confirm");
-}
-
-static struct {
-	bool (*c_api)(struct sol_oic_client *client,
-		struct sol_oic_resource *res,
-		void(*callback)(RECEIVER_SIGNATURE),
-		const void *data, bool observe);
-	void (*c_callback)(RECEIVER_SIGNATURE);
-} observationMap[2] = {
-	{
-		sol_oic_client_resource_set_observable,
-		defaultConfirmingResourceObserver
-	},
-	{
-		sol_oic_client_resource_set_observable_non_confirmable,
-		defaultNonConfirmingResourceObserver
-	}
-};
-
-static Local<Boolean> observation_implementation(struct sol_oic_resource *resource, Local<Function> jsCallback, bool observe, int index) {
-	bool returnValue = true;
-	char eventName[256] = "";
-	snprintf(eventName, 255, "oic.client.observe.confirm.%p", (void *)resource);
-	Local<String> jsEventName = Nan::New(eventName).ToLocalChecked();
-
-	if (observe) {
-		if (async_bridge_get_listener_count(jsEventName) == 0) {
-			returnValue = observationMap[index].c_api(
-				sol_oic_client_get(), resource,
-					observationMap[index].c_callback, resource, true);
-		}
-		if (returnValue) {
-			async_bridge_add(jsEventName, jsCallback);
+	if (startObserving) {
+		callback = new Nan::Callback(jsCallback);
+		*result = solAPI(sol_oic_client_get(), resource, resourceObserver,
+			callback, startObserving);
+		if (*result) {
+			async_bridge_add(3, keys, callback);
 		}
 	} else {
-		if (async_bridge_get_listener_count(jsEventName) == 1) {
-			returnValue = observationMap[index].c_api(
-				sol_oic_client_get(), resource,
-					observationMap[index].c_callback, resource, false);
+		BridgeNode *theBridge = 0;
+		callback = async_bridge_get(3, keys, jsCallback, &theBridge);
+		if (!callback) {
+			return false;
 		}
-		if (returnValue) {
-			async_bridge_del(jsEventName, jsCallback);
+		*result = solAPI(sol_oic_client_get(), resource, resourceObserver,
+			callback, startObserving);
+		if (*result) {
+			async_bridge_remove(theBridge, callback);
+			delete callback;
 		}
 	}
-
-	return Nan::New(returnValue);
+	return true;
 }
 
-#define OBSERVATION_IMPLEMENTATION(index) \
+#define DO_OBSERVE(isConfirmable) \
 	do { \
 		VALIDATE_ARGUMENT_COUNT(info, 3); \
 		VALIDATE_ARGUMENT_TYPE(info, 0, IsObject); \
 		VALIDATE_ARGUMENT_TYPE(info, 1, IsFunction); \
 		VALIDATE_ARGUMENT_TYPE(info, 2, IsBoolean); \
-\
-		struct sol_oic_resource *resource = (struct sol_oic_resource *) \
-			SolOicResource::CResource( \
-				Nan::To<Object>(info[0]).ToLocalChecked(), false); \
-		if (!resource) { \
-			return; \
+		bool result = false; \
+		if (do_observe(Nan::To<Object>(info[0]).ToLocalChecked(), \
+			Local<Function>::Cast(info[1]), \
+			Nan::To<bool>(info[2]).FromJust(), \
+			(isConfirmable), &result)) { \
+			info.GetReturnValue().Set(Nan::New(result)); \
 		} \
-\
-		info.GetReturnValue().Set( \
-			observation_implementation(resource, \
-				Local<Function>::Cast(info[1]), info[2]->BooleanValue(), \
-				(index))); \
 	} while(0)
 
 NAN_METHOD(bind_sol_oic_client_resource_set_observable) {
-	OBSERVATION_IMPLEMENTATION(0);
+	DO_OBSERVE(true);
 }
 
 NAN_METHOD(bind_sol_oic_client_resource_set_observable_non_confirmable) {
-	OBSERVATION_IMPLEMENTATION(1);
+	DO_OBSERVE(false);
 }

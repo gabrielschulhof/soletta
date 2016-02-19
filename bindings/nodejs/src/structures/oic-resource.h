@@ -63,6 +63,6 @@ private:
 
 };
 
-
+v8::Local<v8::Object> js_sol_oic_resource(struct sol_oic_resource *resource);
 
 #endif /* ndef __SOLETTA_NODE_JS_OIC_RESOURCE__ */
