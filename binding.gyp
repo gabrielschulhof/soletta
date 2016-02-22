@@ -44,10 +44,20 @@
 					"sources": [
 						"bindings/nodejs/generated/main.cc",
 						"bindings/nodejs/src/data.cc",
+						"bindings/nodejs/src/functions/oic-client-discovery.cc",
+						"bindings/nodejs/src/functions/oic-client-request.cc",
+						"bindings/nodejs/src/functions/oic-server.cc",
 						"bindings/nodejs/src/functions/simple.cc",
+						"bindings/nodejs/src/functions/sol-coap.cc",
+						"bindings/nodejs/src/functions/sol-network.cc",
 						"bindings/nodejs/src/functions/sol-platform-monitors.cc",
 						"bindings/nodejs/src/hijack.c",
-						"bindings/nodejs/src/structures/js-handle.cc"
+						"bindings/nodejs/src/structures/coap-server.cc",
+						"bindings/nodejs/src/structures/device-id.cc",
+						"bindings/nodejs/src/structures/js-handle.cc",
+						"bindings/nodejs/src/structures/network.cc",
+						"bindings/nodejs/src/structures/oic-client.cc",
+						"bindings/nodejs/src/structures/oic-map.cc"
 					],
 					"include_dirs": [
 						"<!(node -e \"require('nan')\")"
