@@ -48,7 +48,9 @@ cat bindings/nodejs/generated/main.h.prologue > bindings/nodejs/generated/main.h
 
 # Add constants and enums from selected files
 FILES=\
-'sol-platform.h'
+'sol-platform.h
+sol-network.h
+sol-oic-client.h'
 
 for file in $FILES; do
 	echo "#include <$file>" >> bindings/nodejs/generated/main.h
