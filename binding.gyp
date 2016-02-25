@@ -46,6 +46,7 @@
 						"bindings/nodejs/src/data.cc",
 						"bindings/nodejs/src/hijack.c",
 						"bindings/nodejs/src/functions/oic-client-discovery.cc",
+						"bindings/nodejs/src/functions/oic-server.cc",
 						"bindings/nodejs/src/functions/simple.cc",
 						"bindings/nodejs/src/functions/sol-coap.cc",
 						"bindings/nodejs/src/functions/sol-network.cc",

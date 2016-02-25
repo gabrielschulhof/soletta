@@ -30,17 +30,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <map>
 #include <string.h>
 #include <nan.h>
 #include <sol-oic-server.h>
 
 #include "../common.h"
 #include "../structures/js-handle.h"
-#include "../strctures/network.h"
+#include "../structures/network.h"
+#include "../structures/oic-map.h"
 
-DECLARE_HANDLE_CLASS_PROTOTYPE(SolOicServerResource);
-DELCARE_HANDLE_CLASS_NEW(SolOicServerResource);
-DELCARE_HANDLE_CLASS_REST(SolOicServerResource);
+using namespace v8;
 
 NAN_METHOD(bind_sol_oic_server_init) {
 	info.GetReturnValue().Set(Nan::New(sol_oic_server_init()));
@@ -49,6 +49,32 @@ NAN_METHOD(bind_sol_oic_server_init) {
 NAN_METHOD(bind_sol_oic_server_shutdown) {
 	sol_oic_server_shutdown();
 }
+
+DECLARE_HANDLE_CLASS_PROTOTYPE(SolOicServerResource);
+DECLARE_HANDLE_CLASS_IMPLEMENTATION_NEW(SolOicServerResource);
+DECLARE_HANDLE_CLASS_IMPLEMENTATION_REST(SolOicServerResource);
+
+static const char *keys[] = { "get", "put", "post", "del", 0 };
+struct ResourceInfo {
+	ResourceInfo(Local<Object> definition) : resource(0) {
+		int index;
+		for (index = 0; keys[index]; index++) {
+			Local<Value> value =
+				Nan::Get(definition, Nan::New(keys[index]).ToLocalChecked())
+					.ToLocalChecked();
+			handlers[keys[index]] = value->IsNull() ? 0 :
+				new Nan::Callback(Local<Function>::Cast(value));
+		}
+	}
+	~ResourceInfo() {
+		int index;
+		for (index = 0; keys[index]; index++) {
+			delete handlers[keys[index]];
+		}
+	}
+	std::map<const char *, Nan::Callback *>handlers;
+	struct sol_oic_server_resource *resource;
+};
 
 #define ENTITY_HANDLER_SIGNATURE \
 	const struct sol_network_link_addr *cliaddr, \
@@ -59,11 +85,23 @@ NAN_METHOD(bind_sol_oic_server_shutdown) {
 static sol_coap_responsecode_t entityHandler(ENTITY_HANDLER_SIGNATURE,
 	const char *method) {
 	Nan::HandleScope scope;
-	struct EntityHandlerInfo *info = (struct EntityHandlerInfo *)data;
+	sol_coap_responsecode_t returnValue = SOL_COAP_RSPCODE_NOT_IMPLEMENTED;
+	struct ResourceInfo *info = (struct ResourceInfo *)data;
+	Local<Object> outputPayload = Nan::New<Object>();
 	Local<Value> arguments[3] = {
 		js_sol_network_link_addr(cliaddr),
-		
+		js_sol_oic_map_reader(input),
+		outputPayload
 	};
+	Nan::Callback *callback = info->handlers[method];
+	if (callback) {
+		Local<Value> jsReturnValue = callback->Call(3, arguments);
+		VALIDATE_CALLBACK_RETURN_VALUE_TYPE(jsReturnValue, IsUint32,
+			"entity handler", returnValue);
+		returnValue = (sol_coap_responsecode_t)
+			Nan::To<uint32_t>(jsReturnValue).FromJust();
+	}
+	return returnValue;
 }
 
 static sol_coap_responsecode_t defaultGet(ENTITY_HANDLER_SIGNATURE) {
@@ -104,10 +142,10 @@ static bool c_sol_oic_resource_type(Local<Object> js,
 		.resource_type = {0, 0},
 		.interface = {0, 0},
 		.path = {0, 0},
-		get = { .handle = defaultGet },
-		put = { .handle = defaultPut },
-		post = { .handle = defaultPost },
-		del = { .handle = defaultDel }
+		.get = { .handle = defaultGet },
+		.put = { .handle = defaultPut },
+		.post = { .handle = defaultPost },
+		.del = { .handle = defaultDel }
 	};
 
 	ASSIGN_STR_SLICE_MEMBER_FROM_PROPERTY(local, js, error, resource_type);
@@ -118,9 +156,9 @@ static bool c_sol_oic_resource_type(Local<Object> js,
 	return true;
 
 path_failed:
-	free(local.interface);
+	free((void *)(local.interface.data));
 interface_failed:
-	free(local.resource_type);
+	free((void *)(local.resource_type.data));
 resource_type_failed:
 	Nan::ThrowError(error);
 	return false;
@@ -128,8 +166,8 @@ resource_type_failed:
 
 NAN_METHOD(bind_sol_oic_server_add_resource) {
 	VALIDATE_ARGUMENT_COUNT(info, 2);
-	VALIDATE_ARGUMENT_TYPE(info, 1, IsObject);
-	VALIDATE_ARGUMENT_TYPE(info, 2, IsUint32);
+	VALIDATE_ARGUMENT_TYPE(info, 0, IsObject);
+	VALIDATE_ARGUMENT_TYPE(info, 1, IsUint32);
 
 	struct sol_oic_resource_type resourceType;
 	if (!c_sol_oic_resource_type(Nan::To<Object>(info[0]).ToLocalChecked(),
@@ -137,5 +175,53 @@ NAN_METHOD(bind_sol_oic_server_add_resource) {
 		return;
 	}
 
-	
+	struct ResourceInfo *resourceInfo =
+		new ResourceInfo(Nan::To<Object>(info[0]).ToLocalChecked());
+
+	struct sol_oic_server_resource *resource =
+		sol_oic_server_add_resource(&resourceType, resourceInfo,
+			(enum sol_oic_resource_flag)
+				(Nan::To<uint32_t>(info[1]).FromJust()));
+	resourceInfo->resource = resource;
+
+	free((void *)(resourceType.resource_type.data));
+	free((void *)(resourceType.interface.data));
+	free((void *)(resourceType.path.data));
+
+	if (!resource) {
+		delete resourceInfo;
+		info.GetReturnValue().Set(Nan::Null());
+		return;
+	}
+	info.GetReturnValue().Set(SolOicServerResource::New(resourceInfo));
+}
+
+NAN_METHOD(bind_sol_oic_server_del_resource) {
+	VALIDATE_ARGUMENT_COUNT(info, 1);
+	VALIDATE_ARGUMENT_TYPE(info, 0, IsObject);
+	struct ResourceInfo *resourceInfo = (struct ResourceInfo *)
+		SolOicServerResource::Resolve(
+			Nan::To<Object>(info[0]).ToLocalChecked());
+	if (!resourceInfo) {
+		return;
+	}
+	sol_oic_server_del_resource(resourceInfo->resource);
+	delete resourceInfo;
+}
+
+NAN_METHOD(bind_sol_oic_notify_observers) {
+	VALIDATE_ARGUMENT_COUNT(info, 2);
+	VALIDATE_ARGUMENT_TYPE(info, 0, IsObject);
+	VALIDATE_ARGUMENT_TYPE_OR_NULL(info, 1, IsObject);
+	struct ResourceInfo *resourceInfo = (struct ResourceInfo *)
+		SolOicServerResource::Resolve(
+			Nan::To<Object>(info[0]).ToLocalChecked());
+	Nan::Persistent<Object> *jsPayload = 0;
+	if (!info[1]->IsNull()) {
+		jsPayload = new Nan::Persistent<Object>(
+			Nan::To<Object>(info[1]).ToLocalChecked());
+	}
+	info.GetReturnValue().Set(Nan::New(
+		sol_oic_notify_observers(resourceInfo->resource,
+			(jsPayload ? oic_map_writer_callback : 0), jsPayload)));
 }
