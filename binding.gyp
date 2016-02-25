@@ -50,7 +50,9 @@
 						"bindings/nodejs/src/functions/sol-coap.cc",
 						"bindings/nodejs/src/functions/sol-network.cc",
 						"bindings/nodejs/src/functions/sol-platform-monitors.cc",
-						"bindings/nodejs/src/structures/network.cc"
+						"bindings/nodejs/src/structures/device-id.cc",
+						"bindings/nodejs/src/structures/network.cc",
+						"bindings/nodejs/src/structures/oic-map.cc"
 					],
 					"include_dirs": [
 						"<!(node -e \"require('nan')\")"

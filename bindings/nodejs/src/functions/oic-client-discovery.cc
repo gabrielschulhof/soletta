@@ -34,6 +34,7 @@
 #include <sol-oic-client.h>
 
 #include "../common.h"
+#include "../structures/device-id.h"
 #include "../structures/js-handle.h"
 #include "../structures/network.h"
 #include "coap.h"
@@ -89,6 +90,39 @@ struct ResourceFoundInfo {
 	Nan::Persistent<Object> *jsClient;
 };
 
+Local<Array> jsStringArrayFromStrSliceVector(struct sol_vector *vector) {
+	Local<Array> jsArray = Nan::New<Array>(vector->len);
+	sol_str_slice *slice;
+	int index;
+	SOL_VECTOR_FOREACH_IDX(vector, slice, index) {
+		jsArray->Set(index,
+			Nan::New<String>(slice->data, slice->len).ToLocalChecked());
+	}
+	return jsArray;
+}
+
+Local<Object> fillJSClientResource(Local<Object> jsResource,
+	struct sol_oic_resource *resource) {
+	Nan::Set(jsResource, Nan::New("addr").ToLocalChecked(),
+		js_sol_network_link_addr(&(resource->addr)));
+	Nan::Set(jsResource, Nan::New("device_id").ToLocalChecked(),
+		js_DeviceIdFromSlice(&(resource->device_id)));
+	Nan::Set(jsResource, Nan::New("href").ToLocalChecked(),
+		Nan::New<String>(resource->href.data,
+			resource->href.len).ToLocalChecked());
+	Nan::Set(jsResource, Nan::New("interfaces").ToLocalChecked(),
+		jsStringArrayFromStrSliceVector(&(resource->interfaces)));
+	Nan::Set(jsResource, Nan::New("is_observing").ToLocalChecked(),
+		Nan::New(resource->is_observing));
+	Nan::Set(jsResource, Nan::New("observable").ToLocalChecked(),
+		Nan::New(resource->observable));
+	Nan::Set(jsResource, Nan::New("secure").ToLocalChecked(),
+		Nan::New(resource->secure));
+	Nan::Set(jsResource, Nan::New("types").ToLocalChecked(),
+		jsStringArrayFromStrSliceVector(&(resource->types)));
+	return jsResource;
+}
+
 static bool resourceFound(struct sol_oic_client *client,
 	struct sol_oic_resource *resource, void *data) {
 	Nan::HandleScope scope;
@@ -96,10 +130,11 @@ static bool resourceFound(struct sol_oic_client *client,
 
 	Local<Value> arguments[2] = {
 		Nan::New(*(info->jsClient)),
-		SolOicClientResource::New(resource)
+		fillJSClientResource(SolOicClientResource::New(resource), resource)
 	};
 	Local<Value> jsResult = info->callback->Call(2, arguments);
-	VALIDATE_CALLBACK_RETURN_VALUE_TYPE(jsResult, IsBoolean, "discovery");
+	VALIDATE_CALLBACK_RETURN_VALUE_TYPE(jsResult, IsBoolean, "discovery",
+		true);
 	bool result = Nan::To<bool>(jsResult).FromJust();
 	if (!result) {
 		delete client;
