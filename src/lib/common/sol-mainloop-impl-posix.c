@@ -379,10 +379,10 @@ signals_process(void)
     SOL_PTR_VECTOR_FOREACH_IDX (&child_watch_vector, one_child, vector_index) {
         int status = 0;
         pid_t pid = waitpid(one_child->pid, &status, WNOHANG);
-        if (pid <= 0)
-            break;
-        SOL_DBG("collected finished pid=%" PRIu64 ", status=%d",
-            (uint64_t)pid, status);
+        if (pid > 0) {
+            SOL_DBG("collected finished pid=%" PRIu64 ", status=%d",
+                (uint64_t)pid, status);
+        }
     }
 }
 
