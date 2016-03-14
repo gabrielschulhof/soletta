@@ -28,7 +28,7 @@ var uuid = process.argv[ 2 ];
 var observationCount = 0;
 var theResource;
 
-console.log( JSON.stringify( { assertionCount: desiredObservationCount + 5 } ) );
+console.log( JSON.stringify( { assertionCount: desiredObservationCount + 6 } ) );
 
 var client = soletta.sol_oic_client_new();
 var destination = soletta.sol_network_link_addr_from_str( {
@@ -62,7 +62,10 @@ async.series( [
 				observationCount++;
 				if ( observationCount === desiredObservationCount ) {
 					var typeError = {};
-					soletta.sol_oic_client_resource_unobserve( observationHandle );
+					testUtils.assert( "strictEqual",
+						soletta.sol_oic_client_resource_unobserve( observationHandle ),
+						true,
+						messagePrefix + "Successfully stopped observation" );
 					try {
 						soletta.sol_oic_client_resource_unobserve( observationHandle );
 					} catch( theError ) {
