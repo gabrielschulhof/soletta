@@ -43,8 +43,8 @@
 					"actions": [ {
 						"action_name": "copyapis",
 						"message": "Copying JS APIs",
-						"inputs": [ "./bindings/nodejs/lib" ],
-						"outputs": [ "" ],
+						"inputs": [ "./bindings/nodejs/lib/lib" ],
+						"outputs": [ "./lib" ],
 						"action": [
 							"sh",
 							"-c",
