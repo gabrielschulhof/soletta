@@ -22,6 +22,8 @@
 #include "../structures/network.h"
 #include "../structures/oic-client.h"
 #include "../structures/oic-map.h"
+#include "../structures/oic-info.h"
+#include "oic-client-info-callbacks.h"
 
 using namespace v8;
 
@@ -287,4 +289,45 @@ NAN_METHOD(bind_sol_oic_client_resource_unobserve) {
     }
 
     info.GetReturnValue().Set(Nan::New(result));
+}
+
+#define GET_INFO(infoType) \
+	do { \
+		VALIDATE_ARGUMENT_COUNT(info, 3); \
+		VALIDATE_ARGUMENT_TYPE(info, 0, IsObject); \
+		VALIDATE_ARGUMENT_TYPE(info, 1, IsObject); \
+		VALIDATE_ARGUMENT_TYPE(info, 2, IsFunction); \
+\
+		struct sol_oic_client *client = 0; \
+		struct sol_oic_resource *resource = 0; \
+		Local<Object> jsClient = Nan::To<Object>(info[0]).ToLocalChecked(); \
+\
+		if (!request_setup(jsClient, \
+				Nan::To<Object>(info[1]).ToLocalChecked(), &client, \
+				&resource)) { \
+			return; \
+		} \
+\
+		OicCallbackData *callbackData = \
+			OicCallbackData::New(jsClient, Local<Function>::Cast(info[2])); \
+		if (!callbackData) { \
+			return; \
+		} \
+\
+		bool result = sol_oic_client_get_##infoType##_info(client, resource, \
+			infoType##InfoReceived, callbackData); \
+\
+		if (!result) { \
+			delete callbackData; \
+		} \
+\
+		info.GetReturnValue().Set(Nan::New(result)); \
+	} while(0)
+
+NAN_METHOD(bind_sol_oic_client_get_platform_info) {
+	GET_INFO(platform);
+}
+
+NAN_METHOD(bind_sol_oic_client_get_server_info) {
+	GET_INFO(server);
 }

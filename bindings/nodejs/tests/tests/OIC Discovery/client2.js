@@ -27,12 +27,6 @@ var theResource;
 
 console.log( JSON.stringify( { assertionCount: 3 } ) );
 
-var defaultAddress = {
-	bytes: _.fill( Array( 16 ), 0 ),
-	family: soletta.sol_network_family.SOL_NETWORK_FAMILY_INET,
-	port: 0
-};
-
 var client = soletta.sol_oic_client_new();
 var destination = soletta.sol_network_link_addr_from_str( {
 		bytes: _.fill( Array( 16 ), 0 ),

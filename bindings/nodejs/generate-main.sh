@@ -43,6 +43,7 @@ for file in ${HEADER_FILES_TO_EXAMINE}; do
 	for path in $SOLETTA_SEARCH_PATHS; do
 		if test -f $path/$file; then
 			cat $path/$file | awk -f bindings/nodejs/generate-main.awk
+			break
 		fi
 	done
 done

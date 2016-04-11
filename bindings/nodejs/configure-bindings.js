@@ -50,10 +50,12 @@ for ( oneVariable in process.env ) {
 			sources = sources.concat( [
 				"../src/functions/oic-client-common.cc",
 				"../src/functions/oic-client-discovery.cc",
+				"../src/functions/oic-client-info-callbacks.cc",
 				"../src/functions/oic-client-resource-ops.cc",
 				"../src/functions/oic-server.cc",
 				"../src/structures/device-id.cc",
 				"../src/structures/oic-client.cc",
+				"../src/structures/oic-info.cc",
 				"../src/structures/oic-map.cc"
 			] );
 			headers = headers.concat( [
@@ -131,4 +133,4 @@ for ( oneVariable in process.env ) {
 fs.writeFileSync( path.join( __dirname, "generated", "header-files-list" ), headers.join( "\n" ) );
 
 fs.writeFileSync( path.join( __dirname, "generated", "nodejs-bindings-sources.gyp" ),
-	JSON.stringify( { sources: sources } ) );
+	JSON.stringify( { sources: sources }, null, 4 ) );
