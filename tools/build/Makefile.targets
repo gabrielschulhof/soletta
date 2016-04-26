@@ -219,12 +219,14 @@ bindings-nodejs: $(SOL_LIB_OUTPUT)
 			$(NODE_GYP) configure && $(NODE_GYP) build )
 
 	$(Q) mkdir -p $(build_nodejs_bindingsdir)
-	$(Q) cp -a *js package.json $(build_nodejs_bindingsdir)
+	$(Q) cp -a index.js package.json bindings-path.json $(build_nodejs_bindingsdir)
 	$(Q) mkdir -p $(build_nodejs_bindingsdir)/build
 	$(Q) cp $$(find build -type f -name soletta.node | grep -v 'soletta_sysroot' | head -n 1) \
 		$(build_nodejs_bindingsdir)/build
 	$(Q) mkdir -p $(build_nodejs_bindingsdir)/node_modules
 	$(Q) cp -a ./node_modules/* $(build_nodejs_bindingsdir)/node_modules
+	$(Q) mkdir -p $(build_nodejs_bindingsdir)/bindings/nodejs
+	$(Q) cp -a ./bindings/nodejs/lib/* $(build_nodejs_bindingsdir)/bindings/nodejs
 
 PHONY += bindings-nodejs
 

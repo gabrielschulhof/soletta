@@ -22,8 +22,7 @@ var theError = null;
 console.log( JSON.stringify( { assertionCount: 1 } ) );
 
 try {
-	require( require( "path" )
-		.join( require( "bindings" ).getRoot( __filename ), "lowlevel" ) );
+	require( require( "bindings" ).getRoot( __filename ) )( "lowlevel" );
 } catch( anError ) {
 	theError = anError;
 }

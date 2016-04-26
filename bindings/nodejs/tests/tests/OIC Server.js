@@ -16,8 +16,7 @@
  * limitations under the License.
  */
 
-var soletta = require( require( "path" )
-	.join( require( "bindings" ).getRoot( __filename ), "lowlevel" ) );
+var soletta = require( require( "bindings" ).getRoot( __filename ) )( "lowlevel" );
 var testUtils = require( "../assert-to-console" );
 var theResource;
 var anError = {};

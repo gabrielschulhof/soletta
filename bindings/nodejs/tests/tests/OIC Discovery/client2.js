@@ -19,8 +19,7 @@
 var messagePrefix = "Client 2: ";
 var async = require( "async" );
 var _ = require( "lodash" );
-var soletta = require( require( "path" )
-	.join( require( "bindings" ).getRoot( __filename ), "lowlevel" ) );
+var soletta = require( require( "bindings" ).getRoot( __filename ) )( "lowlevel" );
 var testUtils = require( "../../assert-to-console" );
 var discoveryCallbackCount = 0;
 var theResource;
