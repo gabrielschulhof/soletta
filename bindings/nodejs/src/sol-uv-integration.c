@@ -22,21 +22,26 @@
 #include <sol-mainloop.h>
 #include <sol-log.h>
 
+#include "sol-uv-integration.h"
+
 #define RESOLVE_MAINLOOP_STATE(state) \
     ( state == MAINLOOP_HIJACKING_STARTED ? "MAINLOOP_HIJACKING_STARTED" : \
     state == MAINLOOP_HIJACKED ? "MAINLOOP_HIJACKED" : \
     state == MAINLOOP_RELEASING_STARTED ? "MAINLOOP_RELEASING_STARTED" : \
-    state == MAINLOOP_RELEASED ? "MAINLOOP_RELEASED" : "Unknown" )
+    state == MAINLOOP_RELEASED ? "MAINLOOP_RELEASED" : \
+    state == MAINLOOP_YIELDING_STARTED ? "MAINLOOP_YIELDING_STARTED" : "Unknown" )
 
 enum MainloopState {
     MAINLOOP_HIJACKING_STARTED,
     MAINLOOP_HIJACKED,
     MAINLOOP_RELEASING_STARTED,
-    MAINLOOP_RELEASED
+    MAINLOOP_RELEASED,
+    MAINLOOP_YIELDING_STARTED
 };
 
 static enum MainloopState mainloopState = MAINLOOP_RELEASED;
 static uv_idle_t uv_idle;
+static uv_prepare_t uv_token_handle;
 static struct sol_mainloop_source *uv_loop_source = NULL;
 static struct sol_fd *uv_loop_fd = NULL;
 
@@ -44,7 +49,8 @@ static void
 uv_idle_callback()
 {
     SOL_DBG("Entering with state %s", RESOLVE_MAINLOOP_STATE(mainloopState));
-    if (mainloopState == MAINLOOP_HIJACKING_STARTED) {
+    if (mainloopState == MAINLOOP_HIJACKING_STARTED ||
+        mainloopState == MAINLOOP_YIELDING_STARTED) {
         SOL_DBG("running sol_run()");
         mainloopState = MAINLOOP_HIJACKED;
         sol_run();
@@ -105,9 +111,21 @@ static const struct sol_mainloop_source_type uv_loop_source_funcs = {
 static bool
 uv_loop_fd_changed(void *data, int fd, uint32_t active_flags)
 {
-    SOL_DBG("Running one uv loop iteration");
-    uv_run(data, UV_RUN_NOWAIT);
+    if (uv_loop_alive((uv_loop_t *)data)) {
+        SOL_DBG("uv loop alive: running one uv loop iteration");
+        uv_run(data, UV_RUN_NOWAIT);
+    } else {
+        SOL_DBG("uv loop dead: yielding to uv loop");
+        mainloopState = MAINLOOP_YIELDING_STARTED;
+        sol_quit();
+    }
     return true;
+}
+
+void
+uv_token_callback(uv_prepare_t *handle)
+{
+    SOL_DBG("Entering");
 }
 
 int
@@ -118,6 +136,7 @@ hijack_main_loop()
 
     SOL_DBG("Entering with state %s", RESOLVE_MAINLOOP_STATE(mainloopState));
     if (mainloopState == MAINLOOP_HIJACKED ||
+        mainloopState == MAINLOOP_YIELDING_STARTED ||
         mainloopState == MAINLOOP_HIJACKING_STARTED) {
         return 0;
     }
@@ -137,6 +156,9 @@ hijack_main_loop()
     //    main loop runs, but it runs an iteration of the uv main loop in a
     //    non-blocking fashion whenever the uv main loop signals to the
     //    soletta main loop via the attached source.
+    // 3. Attach a token handle to the uv main loop which represents all
+    //    soletta open handles. This is necessary because the uv main loop
+    //    would otherwise quit when it runs out of its own handles.
 
     // We allocate the various needed structures only once. After that, we
     // reuse them. We never free them, even if we release the uv main loop.
@@ -157,7 +179,18 @@ hijack_main_loop()
         }
     }
 
+    returnValue = uv_prepare_init(uv_loop, &uv_token_handle);
+    if (returnValue) {
+        return returnValue;
+    }
+
     returnValue = uv_idle_init(uv_loop, &uv_idle);
+    if (returnValue) {
+        return returnValue;
+    }
+
+    SOL_DBG("Starting token handle");
+    returnValue = uv_prepare_start(&uv_token_handle, uv_token_callback);
     if (returnValue) {
         return returnValue;
     }
@@ -183,6 +216,17 @@ release_main_loop()
         return returnValue;
     }
 
+    if (mainloopState == MAINLOOP_YIELDING_STARTED) {
+        mainloopState = MAINLOOP_RELEASING_STARTED;
+        return returnValue;
+    }
+
+    SOL_DBG("Stopping token handle");
+    returnValue = uv_prepare_stop(&uv_token_handle);
+    if (returnValue) {
+        return returnValue;
+    }
+
     // hijack_main_loop() was called, but the idler has not run yet
     if (mainloopState == MAINLOOP_HIJACKING_STARTED) {
         SOL_DBG("idler has not run yet, so stopping it");
@@ -192,8 +236,10 @@ release_main_loop()
         }
     } else {
         SOL_DBG("quitting main loop");
-        mainloopState = MAINLOOP_RELEASING_STARTED;
-        sol_quit();
+        if (!returnValue) {
+            mainloopState = MAINLOOP_RELEASING_STARTED;
+            sol_quit();
+        }
     }
     return returnValue;
 }
