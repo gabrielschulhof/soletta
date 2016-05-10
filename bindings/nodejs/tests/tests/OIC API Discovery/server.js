@@ -30,7 +30,6 @@ oic.registerResource( {
 	resourceTypes: [ "core.light" ],
 	interfaces: [ "oic.if.baseline" ],
 	discoverable: true,
-	active: true,
 	properties: { someValue: 0 }
 } ).then(
 	function( resource ) {

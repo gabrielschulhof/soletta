@@ -107,11 +107,14 @@ _.extend( devicePrototype, {
 	registerResource: function( init ) {
 		return new Promise( _.bind( function( fulfill, reject ) {
 			var flags = soletta.sol_oic_resource_flag;
-			var resourceFlags = 0 |
+
+			// FIXME: Why does a resource need to be explicitly set to active in order for it to be
+			// discoverable? iotivity also has this flag but it doesn't influence discoverability.
+			// So, for interoperability, it is forced to be on.
+			var resourceFlags = flags.SOL_OIC_FLAG_ACTIVE |
 				( init.discoverable ? flags.SOL_OIC_FLAG_DISCOVERABLE : 0 ) |
 				( init.observable ? flags.SOL_OIC_FLAG_OBSERVABLE : 0 ) |
 				( init.secure ? flags.SOL_OIC_FLAG_SECURE : 0 ) |
-				( init.active ? flags.SOL_OIC_FLAG_ACTIVE : 0 ) |
 				( init.slow ? flags.SOL_OIC_FLAGS_SLOW : 0 );
 
 			if ( !init.id.deviceId ) {
