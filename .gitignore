@@ -33,3 +33,5 @@ pwm.js
 spi.js
 uart.js
 i2c.js
+lib/
+oic.js
