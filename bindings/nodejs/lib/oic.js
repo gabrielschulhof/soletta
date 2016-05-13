@@ -17,7 +17,7 @@
  */
 
 var _ = require( "lodash" );
-var OicDevice = function( role ) {
+var OicDevice = function OicDevice( role ) {
 	if ( !this._isOicDevice ) {
 		return new OicDevice( role );
 	}

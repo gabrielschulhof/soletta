@@ -32,7 +32,8 @@ _.extend( devicePrototype, {
 			utils.addLegacyEventHandler( this, "resourcefound" );
 			utils.addLegacyEventHandler( this, "devicefound" );
 			utils.addLegacyEventHandler( this, "discoveryerror" );
-			utils.setPrivate( this, [ "_resolver", "_client" ] );
+			utils.setPrivate( this, [ "_resolver", "_client", "_resources" ] );
+			this._resources = {};
 			return _super.apply( this, arguments );
 		};
 	} )( devicePrototype._construct ),
@@ -80,16 +81,17 @@ _.extend( devicePrototype, {
 
 			this._resolver.update( resource.device_id, resource.addr );
 
-			// If the resource does not match the filter
-			if ( resourcePath && resource.href !== resourcePath ) {
-				return true;
+			// Call the callback if the resource matches the filter or if there is no filter
+			if ( !resourcePath || resource.href === resourcePath ) {
+				resourceCallback( resource );
 			}
 
-			resourceCallback( resource );
+			return true;
 		}, this );
 	},
 
 	_doDiscovery: function( options, resourceCallback ) {
+		options = options || {};
 		return new Promise( _.bind( function( fulfill, reject ) {
 			var destination = options.deviceId ? this._resolver.resolve( options.deviceId ) :
 				this._resolver.defaultAddress;
@@ -121,16 +123,22 @@ _.extend( devicePrototype, {
 
 	findResources: function( options ) {
 		return this._doDiscovery( options, _.bind( function( resource ) {
+			var resource = new OicResource( {
+				id: {
+					deviceId: resource.device_id,
+					path: resource.href
+				},
+				resourceTypes: resource.types,
+				interfaces: resource.interfaces,
+				_handle: resource
+			} );
+
+			this._resolver.update( resource.device_id, resource.addr );
+			this._resources[ resource.id.deviceId + ":" + resource.id.path ] = resource;
+
 			this.dispatchEvent( "resourcefound", {
 				type: "resourcefound",
-				resource: new OicResource( {
-					id: {
-						deviceId: resource.device_id,
-						path: resource.href
-					},
-					resourceTypes: resource.types,
-					interfaces: resource.interfaces
-				} )
+				resource: resource
 			} );
 		}, this ) );
 	},
@@ -138,9 +146,67 @@ _.extend( devicePrototype, {
 	getDeviceInfo: function( id ) {
 	},
 
+	_oneShotRequest: function( options ) {
+		return new Promise( _.bind( function( fulfill, reject ) {
+			var resource = options.resource ||
+				( options.id ?
+					this._resources[ options.id.deviceId + ":" + options.id.path ] : null );
+			var id = resource ? resource.id : options.id;
+
+			if ( !resource ) {
+				reject( _.extend( new Error( "Unable to find resource" ), { id : id } ) );
+				return;
+			}
+
+			if ( !resource._handle ) {
+				reject( _.extend( new Error( "Unable to find native resource",  { id : id } ) ) );
+				return;
+			}
+
+			if ( !this._client ) {
+				reject( new Error( "Native OIC client not found" ) );
+				return;
+			}
+
+			if ( !soletta.sol_oic_client_resource_request( this._client, resource._handle,
+					options.method, options.payload || null,
+					function responseToRequest( responseCode, client, address, payload ) {
+						if ( responseCode ===
+							soletta.sol_coap_responsecode_t.SOL_COAP_RSPCODE_OK ) {
+							if ( options.createAnswer ) {
+								options.createAnswer( resource, payload );
+							}
+							fulfill();
+							return;
+						}
+
+						reject( _.extend( new Error( "Request failed" ), {
+							result: responseCode
+						} ) );
+					} ) ) {
+				reject( new Error( "Request failed" ) );
+				return;
+			}
+		}, this ) );
+	},
+
 	create: function( resource ) {},
-	retrieve: function( id ) {},
-	update: function( resource ) {},
+	retrieve: function( id ) {
+		return this._oneShotRequest( {
+			id: id,
+			method: soletta.sol_coap_method_t.SOL_COAP_METHOD_GET,
+			createAnswer: function createGetAnswer( resource, payload ) {
+				_.extend( resource.properties, payload );
+			}
+		} );
+	},
+	update: function( resource ) {
+		return this._oneShotRequest( {
+			resource: resource,
+			method: soletta.sol_coap_method_t.SOL_COAP_METHOD_PUT,
+			payload: resource.properties
+		} );
+	},
 	delete: function( id ) {}
 } );
 

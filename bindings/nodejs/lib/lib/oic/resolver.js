@@ -20,7 +20,7 @@
 
 var _ = require( "lodash" );
 var utils = require( "../utils" );
-var OicResolver = function() {
+var OicResolver = function OicResolver() {
 	if ( !this._isOicResolver ) {
 		return new OicResolver();
 	}

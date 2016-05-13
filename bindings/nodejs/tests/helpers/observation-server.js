@@ -39,8 +39,8 @@ theResource = soletta.sol_oic_server_add_resource( _.extend( {
 				observationCount++;
 				output.clientsFinished = observationCount;
 			}
-			if ( observationCount >= 2 && !setObservable ) {
-				clearInterval(theInterval);
+			if ( observationCount >= 2 && setObservable ) {
+				clearInterval( theInterval );
 			}
 			return soletta.sol_coap_responsecode_t.SOL_COAP_RSPCODE_OK;
 		},
@@ -56,13 +56,16 @@ theResource = soletta.sol_oic_server_add_resource( _.extend( {
 
 console.log( JSON.stringify( { ready: true } ) );
 
-if ( !setObservable ) {
+if ( setObservable ) {
 	theInterval = setInterval( function() {
 		soletta.sol_oic_notify_observers( theResource, payload.generate() );
 	}, 200 );
 }
 
 process.on( "SIGINT", function() {
+	if ( theInterval ) {
+		clearInterval( theInterval );
+	}
 	soletta.sol_oic_server_del_resource( theResource );
 } );
 

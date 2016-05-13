@@ -19,7 +19,7 @@
 var _ = require( "lodash" ),
 	utils = require( "../utils" ),
 	soletta = require( "bindings" )( "soletta" ),
-	OicResource = function( init ) {
+	OicResource = function OicResource( init ) {
 		if ( !this._isOicResource ) {
 			return new OicResource( init );
 		}

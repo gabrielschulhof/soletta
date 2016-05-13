@@ -20,11 +20,11 @@ var soletta = require( "bindings" )( "soletta" ),
 	OicResource = require( "./resource" ),
 	utils = require( "../utils" ),
 	_ = require( "lodash" ),
-	OicRequestEvent = function() {
+	OicRequestEvent = function OicRequestEvent() {
 		if ( !this._isOicRequestEvent ) {
 			return new OicRequestEvent();
 		}
-		utils.setPrivate( this, [ "_resourceHandle" ] );
+		utils.setPrivate( this, [ "_resourceHandle", "_output", "_result" ] );
 	},
 	responseCodes = soletta.sol_coap_responsecode_t;
 
@@ -33,31 +33,9 @@ _.extend( OicRequestEvent.prototype, {
 
 	_constructResponse: function( entityHandlerResult, payloadObject ) {
 		return new Promise( _.bind( function( fulfill, reject ) {
-			var result, i,
-				headerOptions = [];
-
-			for ( i = 0; i < this.headerOptions.length; i++ ) {
-				headerOptions[ i ] = {
-					name: this.headerOptions[ i ].name,
-					value: this.headerOptions[ i ].value
-				};
-			}
-
-			result = iotivity.OCDoResponse( {
-				requestHandle: this.requestId,
-				resourceHandle: this._resourceHandle,
-				payload: ( payloadObject ? myUtils.objectToPayload( payloadObject ) : null ),
-				sendVendorSpecificHeaderOptions: headerOptions,
-				resourceUri: ( iotivity.OCGetResourceUri( this._resourceHandle ) || "" ),
-				ehResult: entityHandlerResult
-			} );
-			if ( result !== iotivity.OCStackResult.OC_STACK_OK ) {
-				reject( _.extend( new Error( "OCDoResponse Error" ), {
-					result: result
-				} ) );
-			} else {
-				fulfill();
-			}
+			this._result = entityHandlerResult;
+			this._output = payloadObject;
+			fulfill();
 		}, this ) );
 	},
 
@@ -81,13 +59,6 @@ _.extend( OicRequestEvent.prototype, {
 
 module.exports = function( devicePrototype ) {
 
-function createHandler( requestType, resource ) {
-	return function entityHandler( clientAddress, input, output ) {
-		
-		responseCodes.SOL_COAP_RSPCODE_NOT_IMPLEMENTED;
-	};
-}
-
 _.extend( devicePrototype, {
 	_construct: ( function( _super ) {
 		return function() {
@@ -103,6 +74,25 @@ _.extend( devicePrototype, {
 			return _super.apply( this, arguments );
 		}
 	} )( devicePrototype._construct ),
+
+	_createHandler: function( method, resource ) {
+		return _.bind( function requestHandler( clientAddress, input, output ) {
+			var event = _.extend( new OicRequestEvent(), {
+				type: method + "request",
+				_output: {}
+			} );
+
+			this.dispatchEvent( event.type, event );
+
+			// FIXME: This implies that the output is produced in a synchronous fashion.
+			// There's currently no way around that :(
+			_.extend( output, event._output );
+
+			return event._error ?
+				soletta.sol_coap_responsecode_t.SOL_COAP_INTERNAL_ERROR :
+				soletta.sol_coap_responsecode_t.SOL_COAP_RSPCODE_OK;
+		}, this );
+	},
 
 	registerResource: function( init ) {
 		return new Promise( _.bind( function( fulfill, reject ) {
@@ -128,10 +118,10 @@ _.extend( devicePrototype, {
 				interface: init.interfaces[ 0 ],
 				resource_type: init.resourceTypes[ 0 ],
 				path: init.id.path,
-				get: createHandler( "get", resource ),
-				put: createHandler( "put", resource ),
-				post: createHandler( "post", resource ),
-				del: createHandler( "del", resource )
+				post: this._createHandler( "create", resource ),
+				get: this._createHandler( "retrieve", resource ),
+				put: this._createHandler( "update", resource ),
+				del: this._createHandler( "delete", resource )
 			}, resourceFlags );
 
 			if ( !nativeResource ) {
@@ -155,7 +145,13 @@ _.extend( devicePrototype, {
 	},
 	enablePresence: function( timeToLive ) {},
 	disablePresence: function() {},
-	notify: function( resource ) {},
+	notify: function( resource ) {
+		return new Promise( _.bind( function( fulfill, reject ) {
+			if ( !resource._handle ) {
+				reject( new Error( "Native resource not found" ) );
+			}
+		}, this ) );
+	},
 } );
 
 };
