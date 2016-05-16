@@ -94,8 +94,12 @@ _.extend( devicePrototype, {
 		}, this );
 	},
 
-	registerResource: function( init ) {
+	register: function( init ) {
 		return new Promise( _.bind( function( fulfill, reject ) {
+			if ( this._info.device.role === "client" ) {
+				return reject( new Error( "Not supported" ) );
+			}
+
 			var flags = soletta.sol_oic_resource_flag;
 
 			// FIXME: Why does a resource need to be explicitly set to active in order for it to be
@@ -106,6 +110,10 @@ _.extend( devicePrototype, {
 				( init.observable ? flags.SOL_OIC_FLAG_OBSERVABLE : 0 ) |
 				( init.secure ? flags.SOL_OIC_FLAG_SECURE : 0 ) |
 				( init.slow ? flags.SOL_OIC_FLAGS_SLOW : 0 );
+
+			if ( !init.id ) {
+				return reject( new Error( "No ID found" ) );
+			}
 
 			if ( !init.id.deviceId ) {
 				init.id.deviceId = soletta.sol_platform_get_machine_id()
@@ -134,7 +142,7 @@ _.extend( devicePrototype, {
 			fulfill( resource );
 		}, this ) );
 	},
-	unregisterResource: function( resource ) {
+	unregister: function( resource ) {
 		return new Promise( _.bind( function( fulfill, reject ) {
 			if ( !resource._handle ) {
 				reject( new Error( "Native resource not found" ) );

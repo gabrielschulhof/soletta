@@ -33,6 +33,7 @@
   "devDependencies": {
     "async": "^1.5.2",
     "glob": "^6.0.4",
+    "ocf-test-suite": "git://github.com/gabrielschulhof/ocf-test-suite.git",
     "qunitjs": "^1.21.0",
     "uuid": "^2.0.1",
     "yargs": "^4.2.0"
