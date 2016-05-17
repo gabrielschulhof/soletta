@@ -23,9 +23,11 @@
 
 using namespace v8;
 
-bool c_sol_network_link_addr(Local<Object> jsAddress,
+bool c_sol_network_link_addr(Local<Value> jsAddressValue,
     struct sol_network_link_addr *destination) {
     struct sol_network_link_addr local;
+
+	Local<Object> jsAddress = Nan::To<Object>(jsAddressValue).ToLocalChecked();
 
     Local<Value> jsBytesValue =
         Nan::Get(jsAddress, Nan::New("bytes").ToLocalChecked())

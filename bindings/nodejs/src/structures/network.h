@@ -21,5 +21,5 @@
 #include <v8.h>
 #include <sol-network.h>
 
-bool c_sol_network_link_addr(v8::Local<v8::Object> jsAddress, struct sol_network_link_addr *destination);
+bool c_sol_network_link_addr(v8::Local<v8::Value> jsAddressValue, struct sol_network_link_addr *destination);
 v8::Local<v8::Value> js_sol_network_link_addr(const struct sol_network_link_addr *c_address);

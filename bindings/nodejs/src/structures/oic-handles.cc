@@ -20,12 +20,11 @@
 
 #include "device-id.h"
 #include "network.h"
-#include "oic-client.h"
-#include "../hijack.h"
+#include "oic-handles.h"
 
-const char *SolOicClientResource::jsClassName() {
-    return "SolOicClientResource";
-}
+const char *SolOicClient::jsClassName() { return "SolOicClient"; }
+
+const char *SolOicClientResource::jsClassName() { return "SolOicResource"; }
 
 void SolOicClientResource::ref(void *data) {
     sol_oic_resource_ref((struct sol_oic_resource *)data);
@@ -72,57 +71,4 @@ Local<Object> SolOicClientResource::New(struct sol_oic_resource *resource) {
         jsStringArrayFromStrSliceVector(&(resource->types)));
 
     return jsResource;
-}
-
-const char *SolOicClient::jsClassName() {
-    return "SolOicClient";
-}
-
-void SolOicClient::ref(void *data) {}
-
-void SolOicClient::unref(void *data) {
-    sol_oic_client_del((sol_oic_client *)data);
-}
-
-OicCallbackData::OicCallbackData(): jsClient(0), callback(0),
-    hijackRefWasSuccessful(false) {}
-OicCallbackData::~OicCallbackData() {
-    if (jsClient) {
-        jsClient->Reset();
-        delete jsClient;
-    }
-    delete callback;
-    if (hijackRefWasSuccessful) {
-        hijack_unref();
-    }
-}
-
-bool OicCallbackData::init(Local<Object> _jsClient,
-    Local<Function> jsCallback) {
-    callback = new Nan::Callback(jsCallback);
-    if (!callback) {
-        Nan::ThrowError("OicCallbackData: Failed to allocate callback");
-        return false;
-    }
-    jsClient = new Nan::Persistent<Object>(_jsClient);
-    if (!jsClient) {
-        delete callback;
-        Nan::ThrowError("OicCallbackData: Failed to allocate client");
-        return false;
-    }
-
-    hijackRefWasSuccessful = hijack_ref();
-    return hijackRefWasSuccessful;
-}
-
-OicCallbackData *OicCallbackData::New(Local<Object> jsClient,
-    Local<Function> jsCallback) {
-    OicCallbackData *data = new OicCallbackData;
-    if (!data) {
-        Nan::ThrowError("Failed to allocate OicCallbackData");
-    } else if (!data->init(jsClient, jsCallback)) {
-        delete data;
-        data = 0;
-    }
-    return data;
 }

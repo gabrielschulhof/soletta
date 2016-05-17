@@ -48,24 +48,17 @@ for ( oneVariable in process.env ) {
 
 	switch( match ) {
 		case "OIC":
-            /* FIXME: uncomment when the bindings get up-to-date with
-             * the API again --
-
 			sources = sources.concat( [
-				"../src/functions/oic-client-common.cc",
+				"../src/functions/oic-client.cc",
 				"../src/functions/oic-client-discovery.cc",
-				"../src/functions/oic-client-resource-ops.cc",
-				"../src/functions/oic-server.cc",
 				"../src/structures/device-id.cc",
-				"../src/structures/oic-client.cc",
-				"../src/structures/oic-map.cc"
+				"../src/structures/oic-handles.cc",
+				"../src/structures/oic-client-callback-data.cc"
 			] );
 			headers = headers.concat( [
 				"sol-oic-client.h",
 				"sol-oic.h"
 			] );
-
-            */
 			break;
 		case "NETWORK":
 			sources = sources.concat( [

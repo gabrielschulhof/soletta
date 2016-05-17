@@ -19,11 +19,16 @@
 #pragma once
 
 #include <v8.h>
-#include <sol-oic-client.h>
+#include "js-handle.h"
 
-v8::Local<v8::Value> js_sol_oic_map_reader(const struct sol_oic_map_reader *representation);
+class SolOicClient : public JSHandle<SolOicClient> {
+public: static const char *jsClassName();
+};
 
-bool c_sol_oic_map_writer(v8::Local<v8::Object> payload, struct sol_oic_map_writer *map);
-
-/* @p data is a Nan::Persistent<Object> * */
-bool oic_map_writer_callback(void *data, struct sol_oic_map_writer *map);
+class SolOicClientResource : public JSReffableHandle<SolOicClientResource> {
+public:
+    static const char *jsClassName();
+    static void ref(void *data);
+    static void unref(void *data);
+    static v8::Local<v8::Object> New(struct sol_oic_resource *resource);
+};

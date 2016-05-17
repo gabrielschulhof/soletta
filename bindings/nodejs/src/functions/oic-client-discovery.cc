@@ -16,13 +16,16 @@
  * limitations under the License.
  */
 
+#include <string>
+#include <errno.h>
 #include <string.h>
 #include <nan.h>
 #include <sol-oic-client.h>
 
 #include "../common.h"
 #include "../structures/network.h"
-#include "../structures/oic-client.h"
+#include "../structures/oic-handles.h"
+#include "../structures/oic-client-callback-data.h"
 
 using namespace v8;
 
@@ -37,13 +40,22 @@ static bool resourceFound(void *data, struct sol_oic_client *client,
 
     // Call the JS callback
     Local<Value> arguments[2] = {
-        Nan::New(*(callbackData->jsClient)),
+        Nan::New(callbackData->jsClient),
         Nan::Null()
     };
     if (resource) {
         arguments[1] = SolOicClientResource::New(resource);
     }
-    Local<Value> jsResult = callbackData->callback->Call(2, arguments);
+
+	// We store the JS-wrapped pending call handle in a local object because
+	// from it, we can determine whether callbackData has been destroyed during
+	// the call to the JS callback. For example, if the JS callback calls
+	// sol_oic_pending_cancel() then we don't need to delete callbackData at
+	// the end of this function. In fact, if we delete it, it's a double free
+	// and will cause a segfault.
+	Local<Object> jsPending = Nan::New<Object>(callbackData->jsPending);
+
+    Local<Value> jsResult = callbackData->callback.Call(2, arguments);
 
     // Determine whether we should keep discovering
     if (!jsResult->IsBoolean()) {
@@ -54,8 +66,9 @@ static bool resourceFound(void *data, struct sol_oic_client *client,
             Nan::To<bool>(jsResult).FromJust();
     }
 
-    // Tear down if discovery is done
-    if (!keepDiscovering) {
+    // Tear down this callback if discovery is done and the callbackData has
+    // not yet been freed.
+    if (!keepDiscovering && SolOicPending::Resolve(jsPending, false)) {
         delete callbackData;
     }
 
@@ -71,34 +84,40 @@ NAN_METHOD(bind_sol_oic_client_find_resources) {
     VALIDATE_ARGUMENT_TYPE(info, 4, IsFunction);
 
     struct sol_network_link_addr theAddress;
-    if (!c_sol_network_link_addr(Nan::To<Object>(info[1]).ToLocalChecked(),
-        &theAddress)) {
+    if (!c_sol_network_link_addr(info[1], &theAddress)) {
         return;
     }
 
-    Local<Object> jsClient = Nan::To<Object>(info[0]).ToLocalChecked();
-    struct sol_oic_client *client = (struct sol_oic_client *)
-        SolOicClient::Resolve(jsClient);
-    if (!client) {
-        return;
-    }
-
-    OicCallbackData *callbackData =
-        OicCallbackData::New(jsClient, Local<Function>::Cast(info[4]));
+    OicCallbackData *callbackData = OicCallbackData::New(info[0], info[4]);
     if (!callbackData) {
         return;
     }
 
     struct sol_oic_pending *pending =
-        (sol_oic_client_find_resources((struct sol_oic_client *)client,
-        &theAddress, (const char *)*String::Utf8Value(info[2]),
-        (const char *)*String::Utf8Value(info[3]), resourceFound,
-        callbackData) == 0);
+        sol_oic_client_find_resources(
+			(struct sol_oic_client *)SolOicClient::Resolve(
+				Nan::New<Object>(callbackData->jsClient)),
+	        &theAddress, (const char *)*String::Utf8Value(info[2]),
+    	    (const char *)*String::Utf8Value(info[3]), resourceFound,
+        	callbackData);
 
-    if (!pending) {
-        delete callbackData;
-    }
+	SOL_OIC_PENDING_HANDLE_FAILURE(pending, info, callbackData,
+		"sol_oic_client_find_resources: ");
 
-    //FIXME: properly expose pending handle to JS
-    info.GetReturnValue().Set(Nan::New(pending));
+    info.GetReturnValue().Set(callbackData->assignNativePending(pending));
+}
+
+NAN_METHOD(bind_sol_oic_pending_cancel) {
+	VALIDATE_ARGUMENT_COUNT(info, 1);
+	VALIDATE_ARGUMENT_TYPE(info, 0, IsObject);
+
+	OicCallbackData *callbackData = (OicCallbackData *)
+		SolOicPending::Resolve(Nan::To<Object>(info[0]).ToLocalChecked());
+	if (!callbackData) {
+		return;
+	}
+
+	sol_oic_pending_cancel(callbackData->pending);
+
+	delete callbackData;
 }

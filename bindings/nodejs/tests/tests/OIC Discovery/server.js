@@ -18,27 +18,22 @@
 
 var soletta = require( require( "path" )
 	.join( require( "bindings" ).getRoot( __filename ), "lowlevel" ) );
-var testUtils = require( "../../assert-to-console" );
-var putRequests = 0;
-var theResource;
+var utils = require( "../../assert-to-console" );
+var uuid = process.argv[ 2 ];
 
-console.log( JSON.stringify( { assertionCount: 2 } ) );
+console.log( JSON.stringify( { assertionCount: 1 } ) );
 
-theResource = soletta.sol_oic_server_register_resource( {
-		interface: "oic.if.baseline",
-		resource_type: "core.light",
-		path: "/a/" + process.argv[ 2 ],
-		put: function putHandler( input, output ) {
-			testUtils.assert( "deepEqual", input, { uuid: process.argv[ 2 ] },
-				"Server: PUT request payload is as expected" );
-			output.putRequests = ++putRequests;
-			return soletta.sol_coap_response_code.SOL_COAP_RESPONSE_CODE_OK;
-		}
-	}, soletta.sol_oic_resource_flag.SOL_OIC_FLAG_DISCOVERABLE |
-		soletta.sol_oic_resource_flag.SOL_OIC_FLAG_ACTIVE );
+var resource = soletta.sol_oic_server_register_resource( {
+	path: "/a/" + uuid,
+	interface: "oic.if.baseline",
+	resource_type: "core.light"
+}, soletta.sol_oic_resource_flag.SOL_OIC_FLAG_DISCOVERABLE |
+	soletta.sol_oic_resource_flag.SOL_OIC_FLAG_ACTIVE );
+
+utils.assert( "ok", !!resource, "Server: Resource created successfully" );
 
 console.log( JSON.stringify( { ready: true } ) );
 
 process.on( "SIGINT", function() {
-	soletta.sol_oic_server_unregister_resource( theResource );
+	soletta.sol_oic_server_unregister_resource( resource );
 } );

@@ -16,7 +16,9 @@
  * limitations under the License.
  */
 
-#include "../structures/oic-client.h"
+#include <sol-oic-client.h>
+
+#include "../structures/oic-handles.h"
 #include "../common.h"
 
 using namespace v8;
