@@ -32,3 +32,13 @@ public:
     static void unref(void *data);
     static v8::Local<v8::Object> New(struct sol_oic_resource *resource);
 };
+
+class SolOicRequest : public JSHandle<SolOicRequest> {
+public:
+    static const char *jsClassName();
+};
+
+class SolOicServerResource : public JSHandle<SolOicServerResource> {
+public:
+    static const char *jsClassName();
+};

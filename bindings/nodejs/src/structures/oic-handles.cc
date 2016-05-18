@@ -72,3 +72,9 @@ Local<Object> SolOicClientResource::New(struct sol_oic_resource *resource) {
 
     return jsResource;
 }
+
+const char *SolOicRequest::jsClassName() { return "SolOicRequest"; }
+
+const char *SolOicServerResource::jsClassName() {
+	return "SolOicServerResource";
+}
