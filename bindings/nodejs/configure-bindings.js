@@ -51,10 +51,12 @@ for ( oneVariable in process.env ) {
 			sources = sources.concat( [
 				"../src/functions/oic-client.cc",
 				"../src/functions/oic-client-discovery.cc",
+				"../src/functions/oic-client-get-info.cc",
 				"../src/functions/oic-server.cc",
 				"../src/structures/device-id.cc",
+				"../src/structures/oic-client-callback-data.cc",
 				"../src/structures/oic-handles.cc",
-				"../src/structures/oic-client-callback-data.cc"
+				"../src/structures/oic-info.cc"
 			] );
 			headers = headers.concat( [
 				"sol-oic-client.h",
