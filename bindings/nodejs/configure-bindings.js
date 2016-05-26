@@ -17,25 +17,15 @@
  */
 
 var fs = require( "fs" ),
-	path = require( "path" );
+	path = require( "path" ),
+	configuration = require( "./configure-bindings.json" );
 
 // List containing the names of source files for the bindings we wish to include.
 // Paths are relative to the location of nodejs-bindings-sources.gyp (generated below).
-var sources = [
-	"main.cc",
-	"../src/data.cc",
-	"../src/functions/sol-platform-monitors.cc",
-	"../src/functions/simple.cc",
-	"../src/hijack.cc",
-	"../src/sol-uv-integration.c",
-	"../src/structures/js-handle.cc",
-	"../src/sys-constants.cc"
-];
+var sources = configuration[ "" ].sources.slice( 0 );
 
 // List containing the names of the header files in which to search for constants and enums
-var headers = [
-	"sol-platform.h"
-];
+var headers = configuration[ "" ].headers.slice( 0 );
 
 var oneVariable, match;
 for ( oneVariable in process.env ) {
@@ -46,87 +36,9 @@ for ( oneVariable in process.env ) {
 	// If the value is "y" then add files based on the name of the variable, removing the prefix
 	match = match && ( match === "y" ) ? oneVariable.replace( /^SOL_CONFIG_/, "" ) : null;
 
-	switch( match ) {
-		case "OIC":
-			sources = sources.concat( [
-				"../src/functions/oic-client.cc",
-				"../src/functions/oic-client-discovery.cc",
-				"../src/functions/oic-client-get-info.cc",
-				"../src/functions/oic-server.cc",
-				"../src/structures/device-id.cc",
-				"../src/structures/oic-client-callback-data.cc",
-				"../src/structures/oic-handles.cc",
-				"../src/structures/oic-info.cc"
-			] );
-			headers = headers.concat( [
-				"sol-oic-client.h",
-				"sol-oic.h"
-			] );
-			break;
-		case "NETWORK":
-			sources = sources.concat( [
-				"../src/functions/sol-network.cc",
-				"../src/structures/network.cc"
-			] );
-			headers = headers.concat( [
-				"sol-coap.h",
-				"sol-network.h"
-			] );
-			break;
-		case "USE_GPIO":
-			sources = sources.concat( [
-				"../src/functions/gpio.cc",
-				"../src/structures/sol-js-gpio.cc"
-			] );
-			headers = headers.concat( [
-				"sol-gpio.h"
-			] );
-			break;
-		case "USE_AIO":
-			sources = sources.concat( [
-				"../src/functions/aio.cc",
-			] );
-			headers = headers.concat( [
-				"sol-aio.h"
-			] );
-			break;
-		case "USE_UART":
-			sources = sources.concat( [
-				"../src/functions/uart.cc",
-				"../src/structures/sol-js-uart.cc"
-			] );
-			headers = headers.concat( [
-				"sol-uart.h"
-			] );
-			break;
-		case "USE_PWM":
-			sources = sources.concat( [
-				"../src/functions/pwm.cc",
-				"../src/structures/sol-js-pwm.cc"
-			] );
-			headers = headers.concat( [
-				"sol-pwm.h"
-			] );
-			break;
-		case "USE_SPI":
-			sources = sources.concat( [
-				"../src/functions/spi.cc",
-				"../src/structures/sol-js-spi.cc"
-			] );
-			headers = headers.concat( [
-				"sol-spi.h"
-			] );
-			break;
-		case "USE_I2C":
-			sources = sources.concat( [
-				"../src/functions/i2c.cc"
-			] );
-			headers = headers.concat( [
-				"sol-i2c.h"
-			] );
-			break;
-		default:
-			break;
+	if ( match in configuration ) {
+		sources = sources.concat( configuration[ match ].sources );
+		headers = headers.concat( configuration[ match ].headers );
 	}
 }
 

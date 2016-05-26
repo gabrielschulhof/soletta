@@ -24,6 +24,5 @@
 v8::Local<v8::Array> jsArrayFromBytes(unsigned char *bytes, size_t length);
 bool fillCArrayFromJSArray(unsigned char *bytes, size_t length,
     v8::Local<v8::Array> array);
-bool c_StringNew(v8::Local<v8::String> jsString, char **p_string);
 
 #endif /* ndef __SOLETTA_JS_DATA_H__ */

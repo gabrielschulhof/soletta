@@ -16,16 +16,20 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include <v8.h>
 #include "js-handle.h"
 
-using namespace v8;
+class SolOicRequest : public JSHandle<SolOicRequest> {
+public:
+    static const char *jsClassName();
+    static v8::Local<v8::Object> New(v8::Local<v8::Value> jsMethod, v8::Local<v8::Value> jsResource, bool confirm);
+    static v8::Local<v8::Object> New(void *data);
+};
 
-UnrefData::UnrefData(void *_data, void (*_unref)(void *), Local<Object> js):
-    data(_data), unref(_unref), persistent(new Nan::Persistent<Object>(js)) {
-}
-
-UnrefData::~UnrefData() {
-    unref(data);
-    persistent->Reset();
-    delete persistent;
-}
+class SolOicResponse : public JSHandle<SolOicResponse> {
+public:
+    static const char *jsClassName();
+    static v8::Local<v8::Object> New(v8::Local<v8::Value> jsRequest);
+};

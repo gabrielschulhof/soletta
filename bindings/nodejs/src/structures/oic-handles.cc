@@ -26,14 +26,6 @@ const char *SolOicClient::jsClassName() { return "SolOicClient"; }
 
 const char *SolOicClientResource::jsClassName() { return "SolOicResource"; }
 
-void SolOicClientResource::ref(void *data) {
-    sol_oic_resource_ref((struct sol_oic_resource *)data);
-}
-
-void SolOicClientResource::unref(void *data) {
-    sol_oic_resource_unref((struct sol_oic_resource *)data);
-}
-
 using namespace v8;
 
 static Local<Array> jsStringArrayFromStrSliceVector(
@@ -50,7 +42,7 @@ static Local<Array> jsStringArrayFromStrSliceVector(
 
 Local<Object> SolOicClientResource::New(struct sol_oic_resource *resource) {
     Local<Object> jsResource =
-        JSReffableHandle<SolOicClientResource>::New((void *)resource);
+        JSHandle<SolOicClientResource>::New((void *)resource);
 
     Nan::Set(jsResource, Nan::New("addr").ToLocalChecked(),
         js_sol_network_link_addr(&(resource->addr)));
@@ -72,8 +64,6 @@ Local<Object> SolOicClientResource::New(struct sol_oic_resource *resource) {
 
     return jsResource;
 }
-
-const char *SolOicRequest::jsClassName() { return "SolOicRequest"; }
 
 const char *SolOicServerResource::jsClassName() {
 	return "SolOicServerResource";

@@ -68,7 +68,7 @@ static bool resourceFound(void *data, struct sol_oic_client *client,
 
     // Tear down this callback if discovery is done and the callbackData has
     // not yet been freed.
-    if (!keepDiscovering && SolOicPending::Resolve(jsPending, false)) {
+    if (!keepDiscovering && SolOicPending::IsValid(jsPending)) {
         delete callbackData;
     }
 
@@ -88,23 +88,9 @@ NAN_METHOD(bind_sol_oic_client_find_resources) {
         return;
     }
 
-    OicCallbackData *callbackData = OicCallbackData::New(info[0], info[4]);
-    if (!callbackData) {
-        return;
-    }
-
-    struct sol_oic_pending *pending =
-        sol_oic_client_find_resources(
-			(struct sol_oic_client *)SolOicClient::Resolve(
-				Nan::New<Object>(callbackData->jsClient)),
-	        &theAddress, (const char *)*String::Utf8Value(info[2]),
-    	    (const char *)*String::Utf8Value(info[3]), resourceFound,
-        	callbackData);
-
-	SOL_OIC_PENDING_HANDLE_FAILURE(pending, info, callbackData,
-		"sol_oic_client_find_resources: ");
-
-    info.GetReturnValue().Set(callbackData->assignNativePending(pending));
+	OIC_CLIENT_API_CALL(info, 0, 4, sol_oic_client_find_resources, &theAddress,
+		(const char *)*String::Utf8Value(info[2]),
+    	(const char *)*String::Utf8Value(info[3]), resourceFound);
 }
 
 NAN_METHOD(bind_sol_oic_pending_cancel) {
@@ -120,4 +106,30 @@ NAN_METHOD(bind_sol_oic_pending_cancel) {
 	sol_oic_pending_cancel(callbackData->pending);
 
 	delete callbackData;
+}
+
+NAN_METHOD(bind_sol_oic_resource_ref) {
+	Local<Value> returnValue = info[0];
+	Local<Object> jsResource = Nan::To<Object>(info[0]).ToLocalChecked();
+	struct sol_oic_resource *resource = (struct sol_oic_resource *)
+		SolOicClientResource::Resolve(jsResource);
+	if (!resource) {
+		return;
+	}
+	resource = sol_oic_resource_ref(resource);
+	if (!resource) {
+		Nan::SetInternalFieldPointer(jsResource, 0, 0);
+		returnValue = Nan::Null();
+	}
+	info.GetReturnValue().Set(returnValue);
+}
+
+NAN_METHOD(bind_sol_oic_resource_unref) {
+	struct sol_oic_resource *resource = (struct sol_oic_resource *)
+		SolOicClientResource::Resolve(
+			Nan::To<Object>(info[0]).ToLocalChecked());
+	if (!resource) {
+		return;
+	}
+	sol_oic_resource_unref(resource);
 }

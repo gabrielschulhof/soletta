@@ -52,48 +52,27 @@ public:
         return returnValue;
     }
 
+    static bool
+    IsValid(v8::Local<v8::Object> jsObject)
+    {
+        return Nan::New(theTemplate())->HasInstance(jsObject) &&
+               !!Nan::GetInternalFieldPointer(jsObject, 0);
+    }
+
     // If the object is not of the expected type, or if the pointer inside the
     // object has already been removed, then we must throw an error
     static void *
-    Resolve(v8::Local<v8::Object> jsObject, bool throwException = true)
+    Resolve(v8::Local<v8::Object> jsObject)
     {
         void *returnValue = 0;
 
         if (Nan::New(theTemplate())->HasInstance(jsObject)) {
             returnValue = Nan::GetInternalFieldPointer(jsObject, 0);
         }
-        if (!returnValue && throwException) {
+        if (!returnValue) {
             Nan::ThrowTypeError((std::string("Object is not of type ") +
                 T::jsClassName()).c_str());
         }
         return returnValue;
-    }
-};
-
-class UnrefData {
-public:
-    UnrefData(void *_data, void (*_unref)(void *), v8::Local<v8::Object> js);
-    virtual ~UnrefData();
-    void *data;
-    void (*unref)(void *);
-    Nan::Persistent<v8::Object> *persistent;
-};
-
-template <class T> class JSReffableHandle : public JSHandle<T> {
-    static void
-    InstanceIsGone(const Nan::WeakCallbackInfo<UnrefData> & data)
-    {
-        delete data.GetParameter();
-    }
-public:
-    static v8::Local<v8::Object> New(void *data)
-    {
-        v8::Local<v8::Object> theObject = JSHandle<T>::New(data);
-        T::ref(data);
-        UnrefData *unrefData = new UnrefData(data, T::unref, theObject);
-
-        unrefData->persistent->SetWeak(unrefData, InstanceIsGone,
-            Nan::WeakCallbackType::kParameter);
-        return theObject;
     }
 };

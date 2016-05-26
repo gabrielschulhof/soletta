@@ -23,7 +23,10 @@
 
 #include "../common.h"
 #include "../hijack.h"
+#include "../sys-constants.h"
 #include "../structures/oic-handles.h"
+#include "../structures/oic-request-response.h"
+#include "../sys-constants.h"
 
 using namespace v8;
 
@@ -69,9 +72,8 @@ public:
 
 static int callEntityHandler(Nan::Callback & callback,
 	struct sol_oic_request *request) {
-	Local<Value> arguments[1] = {
-		SolOicRequest::New(request)
-	};
+	Nan::HandleScope scope;
+	Local<Value> arguments[1] = { SolOicRequest::New(request) };
 	Local<Value> jsReturnValue = callback.Call(1, arguments);
 	VALIDATE_CALLBACK_RETURN_VALUE_TYPE(jsReturnValue, IsInt32,
 		"entity handler callback", -1);
@@ -194,4 +196,51 @@ NAN_METHOD(bind_sol_oic_server_unregister_resource) {
 	sol_oic_server_unregister_resource(resourceInfo->resource);
 
 	delete resourceInfo;
+}
+
+NAN_METHOD(bind_sol_oic_server_response_new) {
+	VALIDATE_VALUE_COUNT(info, 1);
+	info.GetReturnValue().Set(SolOicResponse::New(info[0]));
+}
+
+NAN_METHOD(bind_sol_oic_server_response_free) {
+	VALIDATE_VALUE_COUNT(info, 1);
+	Local<Object> jsResponse = Nan::To<Object>(info[0]).ToLocalChecked();
+	struct sol_oic_response *response = (struct sol_oic_response *)
+		SolOicResponse::Resolve(jsResponse);
+	if (!response) {
+		return;
+	}
+	sol_oic_server_response_free(response);
+	Nan::SetInternalFieldPointer(jsResponse, 0, 0);
+}
+
+NAN_METHOD(bind_oic_server_send_response) {
+	VALIDATE_VALUE_COUNT(info, 3);
+	VALIDATE_VALUE_TYPE(info, 0, IsObject);
+	VALIDATE_VALUE_TYPE(info, 1, IsObject);
+	VALIDATE_VALUE_TYPE(info, 2, IsUint32);
+
+	struct sol_oic_request *request = (struct sol_oic_request *)
+		SolOicRequest::Resolve(Nan::To<Object>(info[0]).ToLocalChecked());
+	if (!request) {
+		return;
+	}
+
+	Local<Object> jsResponse = Nan::To<Object>(info[1]).ToLocalChecked();
+	struct sol_oic_response *response = (struct sol_oic_response *)
+		SolOicResponse::Resolve(jsResponse);
+	if (!response) {
+		return;
+	}
+
+	int result = sol_oic_server_send_response(request, response,
+		(enum sol_coap_response_code)Nan::To<int>(info[2]));
+	if (result) {
+		info.GetReturnValue().Set(ReverseLookupConstant("E", result));
+	} else {
+		info.GetReturnValue().Set(Nan::New(result));
+	}
+
+	Nan::SetInternalFieldPointer(jsResponse, 0, 0);
 }

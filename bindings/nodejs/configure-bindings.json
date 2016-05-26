@@ -1,0 +1,97 @@
+{
+	"": {
+		"sources": [
+			"main.cc",
+			"../src/data.cc",
+			"../src/functions/sol-platform-monitors.cc",
+			"../src/functions/simple.cc",
+			"../src/hijack.cc",
+			"../src/sol-uv-integration.c",
+			"../src/sys-constants.cc"
+		],
+		"headers": [
+			"sol-platform.h"
+		]
+	},
+	"OIC": {
+		"sources": [
+			"../src/functions/oic-client.cc",
+			"../src/functions/oic-client-discovery.cc",
+			"../src/functions/oic-client-get-info.cc",
+			"../src/functions/oic-client-request.cc",
+			"../src/functions/oic-server.cc",
+			"../src/structures/device-id.cc",
+			"../src/structures/oic-client-callback-data.cc",
+			"../src/structures/oic-handles.cc",
+			"../src/structures/oic-info.cc",
+			"../src/structures/oic-map.cc",
+			"../src/structures/oic-request-response.cc"
+		],
+		"headers": [
+			"sol-oic-client.h",
+			"sol-oic.h"
+		]
+	},
+	"NETWORK": {
+		"sources": [
+			"../src/functions/sol-network.cc",
+			"../src/structures/network.cc"
+		],
+		"headers": [
+			"sol-coap.h",
+			"sol-network.h"
+		]
+	},
+	"USE_GPIO": {
+		"sources": [
+			"../src/functions/gpio.cc",
+			"../src/structures/sol-js-gpio.cc"
+		],
+		"headers": [
+			"sol-gpio.h"
+		]
+	},
+	"USE_AIO": {
+		"sources": [
+			"../src/functions/aio.cc"
+		],
+		"headers":[
+			"sol-aio.h"
+		]
+	},
+	"USE_UART": {
+		"sources": [
+			"../src/functions/uart.cc",
+			"../src/structures/sol-js-uart.cc"
+		],
+		"headers": [
+			"sol-uart.h"
+		]
+	},
+	"USE_PWM": {
+		"sources": [
+			"../src/functions/pwm.cc",
+			"../src/structures/sol-js-pwm.cc"
+		],
+		"headers": [
+			"sol-pwm.h"
+		]
+	},
+	"USE_SPI": {
+		"sources": [
+			"../src/functions/spi.cc",
+			"../src/structures/sol-js-spi.cc"
+		],
+		"headers": [
+			"sol-spi.h"
+		]
+	},
+	"USE_I2C": {
+		"sources": [
+			"../src/functions/i2c.cc"
+		],
+		"headers": [
+			"sol-i2c.h"
+		]
+	}
+}

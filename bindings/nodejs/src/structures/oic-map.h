@@ -19,19 +19,7 @@
 #pragma once
 
 #include <v8.h>
-#include "js-handle.h"
+#include <sol-oic-common.h>
 
-class SolOicClient : public JSHandle<SolOicClient> {
-public: static const char *jsClassName();
-};
-
-class SolOicClientResource : public JSHandle<SolOicClientResource> {
-public:
-    static const char *jsClassName();
-    static v8::Local<v8::Object> New(struct sol_oic_resource *resource);
-};
-
-class SolOicServerResource : public JSHandle<SolOicServerResource> {
-public:
-    static const char *jsClassName();
-};
+bool c_sol_oic_request(v8::Local<v8::Object> source, struct sol_oic_map_writer *destination);
+bool js_sol_oic_request(v8::Local<v8::Object> destination, const struct sol_oic_map_reader *source);

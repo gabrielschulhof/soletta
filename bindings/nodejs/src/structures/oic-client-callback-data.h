@@ -40,12 +40,41 @@ public:
     static const char *jsClassName();
 };
 
-#define SOL_OIC_PENDING_HANDLE_FAILURE(pending, info, callbackData, message) \
+#define OIC_CLIENT_ONE_SHOT_CALLBACK(argumentCount, clientIndex, callbackData) \
+	for (bool run_once = true; run_once; run_once = false) \
+		for (Nan::HandleScope scope; run_once; run_once = false) \
+			for (Local<Value> arguments[(argumentCount)]; run_once; ({ \
+				run_once = false; \
+				arguments[(clientIndex)] = \
+					Nan::New(((OicCallbackData *)(data))->jsClient); \
+				Local<Object> jsPending = \
+					Nan::New<Object>((callbackData)->jsPending); \
+				(callbackData)->callback.Call((argumentCount), arguments); \
+				if (SolOicPending::IsValid(jsPending)) { \
+					delete (callbackData); \
+				} \
+			})) \
+
+#define OIC_CLIENT_API_CALL(info, clientIndex, callbackIndex, api, ...) \
 	do { \
-		if (!(pending)) { \
-			delete (callbackData); \
-			Nan::ThrowError((std::string((message)) + strerror(errno)).c_str()); \
+		OicCallbackData *callbackData = \
+			OicCallbackData::New((info)[(clientIndex)], \
+				(info)[(callbackIndex)]); \
+		if (!callbackData) { \
+			return; \
+		} \
+		struct sol_oic_pending *pending = (api)( \
+			(struct sol_oic_client *)SolOicClient::Resolve( \
+				Nan::To<Object>((info)[(clientIndex)]) \
+					.ToLocalChecked()), \
+			__VA_ARGS__, callbackData); \
+		if (!pending) { \
+			delete callbackData; \
+			Nan::ThrowError(((std::string(#api) + ": ") + \
+				strerror(errno)).c_str()); \
 			(info).GetReturnValue().Set(Nan::Null()); \
 			return; \
 		} \
+		(info).GetReturnValue() \
+			.Set(callbackData->assignNativePending(pending)); \
 	} while(0)

@@ -27,32 +27,23 @@
 
 using namespace v8;
 
-#define INFO_CALLBACK(infoType, info) \
-	do { \
-		Nan::HandleScope scope; \
-		OicCallbackData *callbackData = (OicCallbackData *)data; \
-		Local<Value> arguments[2] = { \
-			Nan::New(callbackData->jsClient), \
-			Nan::Null() \
-		}; \
+#define INFO_CALLBACK(infoType, info, data) \
+	OIC_CLIENT_ONE_SHOT_CALLBACK(2, 0, ((OicCallbackData *)(data))) { \
 		if (info) { \
 			arguments[1] = js_sol_oic_##infoType##_info((info)); \
+		} else { \
+			arguments[1] = Nan::Null(); \
 		} \
-		Local<Object> jsPending = Nan::New<Object>(callbackData->jsPending); \
-		callbackData->callback.Call(2, arguments); \
-		if (SolOicPending::Resolve(jsPending, false)) { \
-			delete callbackData; \
-		} \
-	} while(0)
+	}
 
 static void getPlatformInfo(void *data, struct sol_oic_client *client,
 	const struct sol_oic_platform_info *info) {
-	INFO_CALLBACK(platform, info);
+	INFO_CALLBACK(platform, info, data);
 }
 
 static void getServerInfo(void *data, struct sol_oic_client *client,
 	const struct sol_oic_device_info *info) {
-	INFO_CALLBACK(device, info);
+	INFO_CALLBACK(device, info, data);
 }
 
 #define GET_INFO(info, keyDeclaration, getKey, keyPointer, api, callback) \
@@ -67,22 +58,7 @@ static void getServerInfo(void *data, struct sol_oic_client *client,
 			return; \
 		} \
 \
-		OicCallbackData *callbackData = \
-			OicCallbackData::New(info[0], info[2]); \
-		if (!callbackData) { \
-			return; \
-		} \
-\
-		struct sol_oic_pending *pending = api( \
-			(struct sol_oic_client *)SolOicClient::Resolve( \
-				Nan::New<Object>(callbackData->jsClient)), keyPointer, \
-				callback, callbackData); \
-\
-		SOL_OIC_PENDING_HANDLE_FAILURE(pending, info, callbackData, \
-			#api ": "); \
-\
-		info.GetReturnValue() \
-			.Set(callbackData->assignNativePending(pending)); \
+		OIC_CLIENT_API_CALL((info), 0, 2, (api), keyPointer, callback); \
 	} while(0)
 
 NAN_METHOD(bind_sol_oic_client_get_platform_info) {
