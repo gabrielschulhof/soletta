@@ -199,12 +199,12 @@ NAN_METHOD(bind_sol_oic_server_unregister_resource) {
 }
 
 NAN_METHOD(bind_sol_oic_server_response_new) {
-	VALIDATE_VALUE_COUNT(info, 1);
+	VALIDATE_ARGUMENT_COUNT(info, 1);
 	info.GetReturnValue().Set(SolOicResponse::New(info[0]));
 }
 
 NAN_METHOD(bind_sol_oic_server_response_free) {
-	VALIDATE_VALUE_COUNT(info, 1);
+	VALIDATE_ARGUMENT_COUNT(info, 1);
 	Local<Object> jsResponse = Nan::To<Object>(info[0]).ToLocalChecked();
 	struct sol_oic_response *response = (struct sol_oic_response *)
 		SolOicResponse::Resolve(jsResponse);
@@ -216,10 +216,10 @@ NAN_METHOD(bind_sol_oic_server_response_free) {
 }
 
 NAN_METHOD(bind_oic_server_send_response) {
-	VALIDATE_VALUE_COUNT(info, 3);
-	VALIDATE_VALUE_TYPE(info, 0, IsObject);
-	VALIDATE_VALUE_TYPE(info, 1, IsObject);
-	VALIDATE_VALUE_TYPE(info, 2, IsUint32);
+	VALIDATE_ARGUMENT_COUNT(info, 3);
+	VALIDATE_ARGUMENT_TYPE(info, 0, IsObject);
+	VALIDATE_ARGUMENT_TYPE(info, 1, IsObject);
+	VALIDATE_ARGUMENT_TYPE(info, 2, IsUint32);
 
 	struct sol_oic_request *request = (struct sol_oic_request *)
 		SolOicRequest::Resolve(Nan::To<Object>(info[0]).ToLocalChecked());
@@ -235,7 +235,7 @@ NAN_METHOD(bind_oic_server_send_response) {
 	}
 
 	int result = sol_oic_server_send_response(request, response,
-		(enum sol_coap_response_code)Nan::To<int>(info[2]));
+		(enum sol_coap_response_code)Nan::To<int>(info[2]).FromJust());
 	if (result) {
 		info.GetReturnValue().Set(ReverseLookupConstant("E", result));
 	} else {

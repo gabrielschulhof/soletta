@@ -37,7 +37,7 @@ struct request_info {
 
 const char *SolOicRequest::jsClassName() { return "SolOicRequest"; }
 
-Local<Object> SolOicRequest::New(void *data) {
+Local<Object> SolOicRequest::New(void *data, enum sol_coap_) {
 	Local<Object> returnValue = JSHandle<SolOicRequest>::New(data);
 
 	struct sol_oic_map_reader *reader =

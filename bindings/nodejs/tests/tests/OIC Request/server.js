@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+var _ = require( "lodash" );
 var soletta = require( require( "path" )
 	.join( require( "bindings" ).getRoot( __filename ), "lowlevel" ) );
 var utils = require( "../../assert-to-console" );
@@ -33,7 +34,7 @@ var resource = soletta.sol_oic_server_register_resource( {
 			booleanValue: true,
 			floatingValue: 1.79,
 			integerValue: 392,
-			negativeValue: -211
+			negativeValue: -211,
 			textStringValue: "Ceci n'est pas une pipe",
 			byteStringValue: [ -75, 19, 125, -2, 0, 5 ]
 		} );

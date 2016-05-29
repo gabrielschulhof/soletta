@@ -25,7 +25,7 @@ class SolOicRequest : public JSHandle<SolOicRequest> {
 public:
     static const char *jsClassName();
     static v8::Local<v8::Object> New(v8::Local<v8::Value> jsMethod, v8::Local<v8::Value> jsResource, bool confirm);
-    static v8::Local<v8::Object> New(void *data);
+    static v8::Local<v8::Object> New(void *data, enum sol_coap_method_type methodType);
 };
 
 class SolOicResponse : public JSHandle<SolOicResponse> {
