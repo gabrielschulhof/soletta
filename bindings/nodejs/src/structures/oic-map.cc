@@ -29,6 +29,12 @@ static bool encodeSingleValue(const char *name, Local<Value> value,
     bool returnValue = true;
     std::string buffer("");
 
+	if (value->IsBoolean()) {
+		field.key = name;
+		field.type = SOL_OIC_REPR_TYPE_BOOLEAN;
+		field.v_boolean = value->BooleanValue();
+	}
+	else
     if (value->IsInt32()) {
         field.key = name;
         field.type = SOL_OIC_REPR_TYPE_INT;
@@ -55,12 +61,12 @@ static bool encodeSingleValue(const char *name, Local<Value> value,
     }
     else
     if (value->IsArray()) {
-        unsigned char *theData = 0;
+        char *theData = 0;
         size_t theDataLength = 0;
 
         Local<Array> array = Local<Array>::Cast(value);
         theDataLength = array->Length();
-        theData = (unsigned char *)malloc(theDataLength);
+        theData = (char *)malloc(theDataLength);
         if (!theData) {
             buffer += std::string("'") + name + "'" +
 				": unable to allocate array";
@@ -142,8 +148,7 @@ bool js_sol_oic_request(Local<Object> destination,
             jsValue = Nan::New<String>(field.v_slice.data,
                 field.v_slice.len).ToLocalChecked();
         } else if (field.type == SOL_OIC_REPR_TYPE_BYTE_STRING) {
-            jsValue = jsArrayFromBytes((unsigned char *)(field.v_slice.data),
-                        field.v_slice.len);
+            jsValue = jsArrayFromBytes(field.v_slice.data, field.v_slice.len);
         } else if (field.type == SOL_OIC_REPR_TYPE_FLOAT) {
             jsValue = Nan::New(field.v_float);
         } else if (field.type == SOL_OIC_REPR_TYPE_DOUBLE) {
@@ -152,7 +157,6 @@ bool js_sol_oic_request(Local<Object> destination,
             jsValue = Nan::Undefined();
         }
         Nan::Set(destination, Nan::New(field.key).ToLocalChecked(), jsValue);
-		sol_oic_repr_field_clear(&field);
 	}
 
 	if (end_status != SOL_OIC_MAP_LOOP_OK) {

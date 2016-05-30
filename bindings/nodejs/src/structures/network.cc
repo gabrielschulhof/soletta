@@ -35,7 +35,8 @@ bool c_sol_network_link_addr(Local<Value> jsAddressValue,
     VALIDATE_VALUE_TYPE(jsBytesValue, IsArray, "Network address bytes array",
         false);
     Local<Array> jsBytes = Local<Array>::Cast(jsBytesValue);
-    if (!fillCArrayFromJSArray(local.addr.in6, 16 * sizeof(char), jsBytes)) {
+    if (!fillCArrayFromJSArray((char *)(local.addr.in6), 16 * sizeof(char),
+		jsBytes)) {
         return false;
     }
 
@@ -58,7 +59,7 @@ Local<Value> js_sol_network_link_addr(
     Local<Object> returnValue = Nan::New<Object>();
 
     Local<Array> bytes =
-        jsArrayFromBytes((unsigned char *)(c_address->addr.in6),
+        jsArrayFromBytes((char *)(c_address->addr.in6),
             16 * sizeof(char));
     Nan::Set(returnValue, Nan::New("bytes").ToLocalChecked(), bytes);
 

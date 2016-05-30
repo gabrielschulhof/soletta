@@ -21,6 +21,7 @@ var soletta = require( require( "path" )
 	.join( require( "bindings" ).getRoot( __filename ), "lowlevel" ) );
 var utils = require( "../../assert-to-console" );
 var uuid = process.argv[ 2 ];
+var expectedPayload = require( "./payload.json" );
 
 console.log( JSON.stringify( { assertionCount: 2 } ) );
 
@@ -32,6 +33,27 @@ var destination = soletta.sol_network_link_addr_from_str( {
 	port: 5683
 }, "224.0.1.187" );
 
+function doPUTRequest( resource ) {
+	var request, requestHandle;
+
+	request = soletta.sol_oic_client_request_new(
+		soletta.sol_coap_method.SOL_COAP_METHOD_PUT, resource );
+	utils.assert( "ok", !!request, "Client: Created PUT request" );
+
+	_.extend( request, expectedPayload );
+
+	requestHandle = soletta.sol_oic_client_request( client, request,
+		function( code, client, address, payload ) {
+			utils.assert( "strictEqual", code,
+				soletta.sol_coap_response_code.SOL_COAP_RESPONSE_CODE_OK,
+				"Client: PUT response was OK" );
+			soletta.sol_oic_resource_unref( resource );
+			soletta.sol_oic_client_del( client );
+			console.log( JSON.stringify( { killPeer: true } ) );
+			process.exit( 0 );
+		} );
+}
+
 function doResourceRequest( resource ) {
 	var request, requestHandle;
 
@@ -39,18 +61,20 @@ function doResourceRequest( resource ) {
 		"Client: Successfully referenced resource" );
 
 	request =
-		soletta.sol_oic_client_request_new(soletta.sol_coap_method.SOL_COAP_METHOD_GET, resource);
-	utils.assert( "ok", !!request, "Client: Created request" );
+		soletta.sol_oic_client_request_new(
+			soletta.sol_coap_method.SOL_COAP_METHOD_GET, resource );
+	utils.assert( "ok", !!request, "Client: Created GET request" );
 
 	requestHandle = soletta.sol_oic_client_request( client, request,
 		function( code, client, address, payload ) {
-			console.error( "GET response: " + JSON.stringify( {
-				code: code,
-				client: client,
-				address: address,
-				payload: payload
-			}, null, 4 ) );
+			utils.assert( "strictEqual", code,
+				soletta.sol_coap_response_code.SOL_COAP_RESPONSE_CODE_OK,
+				"Client: GET response was OK" );
+			utils.assert( "deepEqual", payload, expectedPayload,
+				"Client: GET payload is as expected" );
+			setTimeout( doPUTRequest, 0, resource );
 		} );
+	utils.assert( "ok", !!requestHandle, "Client: GET request successfully sent" );
 }
 
 var findResourcesHandle = soletta.sol_oic_client_find_resources( client, destination, "", "",

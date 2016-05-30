@@ -23,7 +23,7 @@
 
 using namespace v8;
 
-Local<Array> jsArrayFromBytes(unsigned char *bytes, size_t length) {
+Local<Array> jsArrayFromBytes(const char *bytes, size_t length) {
   size_t index;
   Local<Array> returnValue = Nan::New<Array>(length);
 
@@ -33,9 +33,10 @@ Local<Array> jsArrayFromBytes(unsigned char *bytes, size_t length) {
   return returnValue;
 }
 
-bool fillCArrayFromJSArray(unsigned char *bytes, size_t length,
+bool fillCArrayFromJSArray(char *bytes, size_t length,
                                   Local<Array> array) {
   size_t index, arrayLength;
+  int32_t value;
 
   arrayLength = array->Length();
   if (arrayLength != length) {
@@ -45,8 +46,14 @@ bool fillCArrayFromJSArray(unsigned char *bytes, size_t length,
 
   for (index = 0; index < length; index++) {
     Local<Value> byte = Nan::Get(array, index).ToLocalChecked();
-    VALIDATE_VALUE_TYPE(byte, IsUint32, "byte array item", false);
-    bytes[index] = (unsigned char)(byte->Uint32Value());
+    VALIDATE_VALUE_TYPE(byte, IsInt32, "byte array item", false);
+	value = byte->Int32Value();
+	if (value < SCHAR_MIN || value > SCHAR_MAX) {
+		Nan::ThrowRangeError(
+			"byte array item value exceeds signed character range");
+		return false;
+	}
+    bytes[index] = (char)(value);
   }
 
   return true;

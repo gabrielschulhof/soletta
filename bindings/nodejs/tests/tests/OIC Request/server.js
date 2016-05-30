@@ -21,26 +21,53 @@ var soletta = require( require( "path" )
 	.join( require( "bindings" ).getRoot( __filename ), "lowlevel" ) );
 var utils = require( "../../assert-to-console" );
 var uuid = process.argv[ 2 ];
+var payload = require( "./payload.json" );
 
-console.log( JSON.stringify( { assertionCount: 1 } ) );
+console.log( JSON.stringify( { assertionCount: 6 } ) );
 
 var resource = soletta.sol_oic_server_register_resource( {
-	get: function(request) {
+	get: function( request ) {
 		var response = soletta.sol_oic_server_response_new( request );
 
-		utils.assert( "ok", !!response, "Server: Response successfully created" );
+		utils.assert( "ok", !!response, "Server: GET response successfully created" );
 
-		_.extend( response, {
-			booleanValue: true,
-			floatingValue: 1.79,
-			integerValue: 392,
-			negativeValue: -211,
-			textStringValue: "Ceci n'est pas une pipe",
-			byteStringValue: [ -75, 19, 125, -2, 0, 5 ]
-		} );
+		_.extend( response, payload );
 
-		var result = soletta.sol_oic_server_send_response( request, response );
-		utils.assert( "strictEqual", result, 0, "Server: Response successfully sent" );
+		// Async response must work
+		setTimeout( function() {
+			var result = soletta.sol_oic_server_send_response( request, response,
+				soletta.sol_coap_response_code.SOL_COAP_RESPONSE_CODE_OK );
+			utils.assert( "strictEqual", result, 0, "Server: GET response successfully sent" );
+		}, 0 );
+
+		return 0;
+	},
+	put: function( request ) {
+		var response = soletta.sol_oic_server_response_new( request );
+
+		utils.assert( "ok", !!response, "Server: PUT response successfully created" );
+
+		utils.assert( "deepEqual", request, payload,
+			"Server: PUT request payload is as expected" );
+
+		var result = soletta.sol_oic_server_send_response( request, response,
+			soletta.sol_coap_response_code.SOL_COAP_RESPONSE_CODE_OK );
+		utils.assert( "strictEqual", result, 0, "Server: PUT response successfully sent" );
+		try {
+			result = soletta.sol_oic_server_send_response( request, response,
+				soletta.sol_coap_response_code.SOL_COAP_RESPONSE_CODE_OK );
+		} catch ( anError ) {
+			utils.assert( "strictEqual", ( "" + anError ),
+				"Error: Object is not of type SolOicRequest",
+				"Server: Request is freed after it is sent" );
+		}
+		try {
+			soletta.sol_oic_server_response_free( response );
+		} catch( anError ) {
+			utils.assert( "strictEqual", ( "" + anError ),
+				"Error: Object is not of type SolOicResponse",
+				"Server: Response is freed after it is sent" );
+		}
 
 		return 0;
 	},

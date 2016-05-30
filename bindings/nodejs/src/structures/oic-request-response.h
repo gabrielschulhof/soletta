@@ -19,17 +19,21 @@
 #pragma once
 
 #include <v8.h>
+#include <sol-coap.h>
 #include "js-handle.h"
 
 class SolOicRequest : public JSHandle<SolOicRequest> {
 public:
     static const char *jsClassName();
-    static v8::Local<v8::Object> New(v8::Local<v8::Value> jsMethod, v8::Local<v8::Value> jsResource, bool confirm);
-    static v8::Local<v8::Object> New(void *data, enum sol_coap_method_type methodType);
+    static v8::Local<v8::Value> New(v8::Local<v8::Value> jsMethod, v8::Local<v8::Value> jsResource, bool confirm);
+    static v8::Local<v8::Value> New(void *data, enum sol_coap_method method);
+	static void *Resolve(v8::Local<v8::Value> jsRequest);
+	static void Invalidate(v8::Local<v8::Value> jsRequest);
 };
 
 class SolOicResponse : public JSHandle<SolOicResponse> {
 public:
     static const char *jsClassName();
-    static v8::Local<v8::Object> New(v8::Local<v8::Value> jsRequest);
+    static v8::Local<v8::Value> New(v8::Local<v8::Value> jsRequestValue);
+	static void *Resolve(v8::Local<v8::Object> jsResponseValue, v8::Local<v8::Object> jsRequestValue);
 };

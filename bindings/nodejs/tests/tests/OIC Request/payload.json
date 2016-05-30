@@ -1,0 +1,8 @@
+{
+	"booleanValue": true,
+	"floatingValue": 1.79,
+	"integerValue": 392,
+	"negativeValue": -211,
+	"textStringValue": "Ceci n'est pas une pipe",
+	"byteStringValue": [ -75, 19, 125, -2, 0, 5 ]
+}

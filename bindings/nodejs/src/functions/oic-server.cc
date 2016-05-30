@@ -71,9 +71,9 @@ public:
 };
 
 static int callEntityHandler(Nan::Callback & callback,
-	struct sol_oic_request *request) {
+	struct sol_oic_request *request, enum sol_coap_method method) {
 	Nan::HandleScope scope;
-	Local<Value> arguments[1] = { SolOicRequest::New(request) };
+	Local<Value> arguments[1] = { SolOicRequest::New(request, method) };
 	Local<Value> jsReturnValue = callback.Call(1, arguments);
 	VALIDATE_CALLBACK_RETURN_VALUE_TYPE(jsReturnValue, IsInt32,
 		"entity handler callback", -1);
@@ -81,19 +81,23 @@ static int callEntityHandler(Nan::Callback & callback,
 }
 
 static int defaultGet(void *data, struct sol_oic_request *request) {
-	return callEntityHandler(((ResourceInfo *)data)->jsGet, request);
+	return callEntityHandler(((ResourceInfo *)data)->jsGet, request,
+		SOL_COAP_METHOD_GET);
 }
 
 static int defaultPut(void *data, struct sol_oic_request *request) {
-	return callEntityHandler(((ResourceInfo *)data)->jsPut, request);
+	return callEntityHandler(((ResourceInfo *)data)->jsPut, request,
+		SOL_COAP_METHOD_PUT);
 }
 
 static int defaultDel(void *data, struct sol_oic_request *request) {
-	return callEntityHandler(((ResourceInfo *)data)->jsDel, request);
+	return callEntityHandler(((ResourceInfo *)data)->jsDel, request,
+		SOL_COAP_METHOD_DELETE);
 }
 
 static int defaultPost(void *data, struct sol_oic_request *request) {
-	return callEntityHandler(((ResourceInfo *)data)->jsPost, request);
+	return callEntityHandler(((ResourceInfo *)data)->jsPost, request,
+		SOL_COAP_METHOD_POST);
 }
 
 static bool assign_str_slice_from_property(sol_str_slice *slice,
@@ -207,7 +211,7 @@ NAN_METHOD(bind_sol_oic_server_response_free) {
 	VALIDATE_ARGUMENT_COUNT(info, 1);
 	Local<Object> jsResponse = Nan::To<Object>(info[0]).ToLocalChecked();
 	struct sol_oic_response *response = (struct sol_oic_response *)
-		SolOicResponse::Resolve(jsResponse);
+		JSHandle<SolOicResponse>::Resolve(jsResponse);
 	if (!response) {
 		return;
 	}
@@ -215,21 +219,22 @@ NAN_METHOD(bind_sol_oic_server_response_free) {
 	Nan::SetInternalFieldPointer(jsResponse, 0, 0);
 }
 
-NAN_METHOD(bind_oic_server_send_response) {
+NAN_METHOD(bind_sol_oic_server_send_response) {
 	VALIDATE_ARGUMENT_COUNT(info, 3);
 	VALIDATE_ARGUMENT_TYPE(info, 0, IsObject);
 	VALIDATE_ARGUMENT_TYPE(info, 1, IsObject);
 	VALIDATE_ARGUMENT_TYPE(info, 2, IsUint32);
 
+	Local<Object> jsRequest = Nan::To<Object>(info[0]).ToLocalChecked();
 	struct sol_oic_request *request = (struct sol_oic_request *)
-		SolOicRequest::Resolve(Nan::To<Object>(info[0]).ToLocalChecked());
+		SolOicRequest::Resolve(jsRequest);
 	if (!request) {
 		return;
 	}
 
 	Local<Object> jsResponse = Nan::To<Object>(info[1]).ToLocalChecked();
 	struct sol_oic_response *response = (struct sol_oic_response *)
-		SolOicResponse::Resolve(jsResponse);
+		SolOicResponse::Resolve(jsResponse, jsRequest);
 	if (!response) {
 		return;
 	}
@@ -242,5 +247,6 @@ NAN_METHOD(bind_oic_server_send_response) {
 		info.GetReturnValue().Set(Nan::New(result));
 	}
 
+	Nan::SetInternalFieldPointer(jsRequest, 0, 0);
 	Nan::SetInternalFieldPointer(jsResponse, 0, 0);
 }
