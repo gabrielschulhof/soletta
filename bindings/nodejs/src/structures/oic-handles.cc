@@ -29,7 +29,7 @@ const char *SolOicClientResource::jsClassName() { return "SolOicResource"; }
 using namespace v8;
 
 static Local<Array> jsStringArrayFromStrSliceVector(
-    struct sol_vector *vector) {
+    const struct sol_vector *vector) {
     Local<Array> jsArray = Nan::New<Array>(vector->len);
     sol_str_slice *slice;
     int index;
@@ -53,8 +53,6 @@ Local<Object> SolOicClientResource::New(struct sol_oic_resource *resource) {
             resource->path.len).ToLocalChecked());
     Nan::Set(jsResource, Nan::New("interfaces").ToLocalChecked(),
         jsStringArrayFromStrSliceVector(&(resource->interfaces)));
-    Nan::Set(jsResource, Nan::New("is_observed").ToLocalChecked(),
-        Nan::New(resource->is_observed));
     Nan::Set(jsResource, Nan::New("observable").ToLocalChecked(),
         Nan::New(resource->observable));
     Nan::Set(jsResource, Nan::New("secure").ToLocalChecked(),

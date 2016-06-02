@@ -133,7 +133,7 @@ bool c_sol_oic_request(Local<Object> source,
 bool js_sol_oic_request(Local<Object> destination,
 	const struct sol_oic_map_reader *source) {
 	struct sol_oic_repr_field field;
-	enum sol_oic_map_loop_status end_status;
+	enum sol_oic_map_loop_reason end_status;
 	struct sol_oic_map_reader iterator = {0, 0, 0, 0, 0, 0};
 
 	SOL_OIC_MAP_LOOP(source, &field, &iterator, end_status) {
