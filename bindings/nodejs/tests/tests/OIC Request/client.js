@@ -23,7 +23,7 @@ var utils = require( "../../assert-to-console" );
 var uuid = process.argv[ 2 ];
 var expectedPayload = require( "./payload.json" );
 
-console.log( JSON.stringify( { assertionCount: 2 } ) );
+console.log( JSON.stringify( { assertionCount: 8 } ) );
 
 var client = soletta.sol_oic_client_new();
 
@@ -47,6 +47,8 @@ function doPUTRequest( resource ) {
 			utils.assert( "strictEqual", code,
 				soletta.sol_coap_response_code.SOL_COAP_RESPONSE_CODE_OK,
 				"Client: PUT response was OK" );
+
+			// FIXME: This does not work synchronously but it must
 			soletta.sol_oic_resource_unref( resource );
 			soletta.sol_oic_client_del( client );
 			console.log( JSON.stringify( { killPeer: true } ) );

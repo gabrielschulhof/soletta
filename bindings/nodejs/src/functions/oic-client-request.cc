@@ -61,11 +61,12 @@ static void defaultRequest(void *data, enum sol_coap_response_code code,
 	OIC_CLIENT_ONE_SHOT_CALLBACK(4, 1, (OicCallbackData *)data) {
 		arguments[0] = Nan::New(code);
 		arguments[2] = js_sol_network_link_addr(address);
-		Local<Object> jsPayload = Nan::New<Object>();
-		if (js_sol_oic_request(jsPayload, payload)) {
-			arguments[3] = jsPayload;
-		} else {
-			arguments[3] = Nan::Null();
+		arguments[3] = Nan::Null();
+		if (payload) {
+			Local<Object> jsPayload = Nan::New<Object>();
+			if (js_sol_oic_request(jsPayload, payload)) {
+				arguments[3] = jsPayload;
+			}
 		}
 	}
 }

@@ -23,7 +23,7 @@ var utils = require( "../../assert-to-console" );
 var uuid = process.argv[ 2 ];
 var payload = require( "./payload.json" );
 
-console.log( JSON.stringify( { assertionCount: 6 } ) );
+console.log( JSON.stringify( { assertionCount: 8 } ) );
 
 var resource = soletta.sol_oic_server_register_resource( {
 	get: function( request ) {
@@ -43,6 +43,7 @@ var resource = soletta.sol_oic_server_register_resource( {
 		return 0;
 	},
 	put: function( request ) {
+		var theError;
 		var response = soletta.sol_oic_server_response_new( request );
 
 		utils.assert( "ok", !!response, "Server: PUT response successfully created" );
@@ -53,21 +54,27 @@ var resource = soletta.sol_oic_server_register_resource( {
 		var result = soletta.sol_oic_server_send_response( request, response,
 			soletta.sol_coap_response_code.SOL_COAP_RESPONSE_CODE_OK );
 		utils.assert( "strictEqual", result, 0, "Server: PUT response successfully sent" );
+
+		theError = "no error";
 		try {
 			result = soletta.sol_oic_server_send_response( request, response,
 				soletta.sol_coap_response_code.SOL_COAP_RESPONSE_CODE_OK );
 		} catch ( anError ) {
-			utils.assert( "strictEqual", ( "" + anError ),
-				"Error: Object is not of type SolOicRequest",
-				"Server: Request is freed after it is sent" );
+			theError = anError;
 		}
+		utils.assert( "strictEqual", ( "" + theError ),
+			"TypeError: Object is not of type SolOicRequest",
+			"Server: Request is freed after it is sent" );
+
+		theError = "no error";
 		try {
 			soletta.sol_oic_server_response_free( response );
 		} catch( anError ) {
-			utils.assert( "strictEqual", ( "" + anError ),
-				"Error: Object is not of type SolOicResponse",
-				"Server: Response is freed after it is sent" );
+			theError = anError;
 		}
+		utils.assert( "strictEqual", ( "" + theError ),
+			"TypeError: Object is not of type SolOicResponse",
+			"Server: Response is freed after it is sent" );
 
 		return 0;
 	},

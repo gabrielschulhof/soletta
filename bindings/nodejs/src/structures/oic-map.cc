@@ -142,6 +142,8 @@ bool js_sol_oic_request(Local<Object> destination,
             jsValue = Nan::New<Uint32>((uint32_t)field.v_uint);
         } else if (field.type == SOL_OIC_REPR_TYPE_INT) {
             jsValue = Nan::New<Int32>((int32_t)field.v_int);
+        } else if (field.type == SOL_OIC_REPR_TYPE_BOOLEAN) {
+            jsValue = Nan::New<Boolean>((bool)field.v_boolean);
         } else if (field.type == SOL_OIC_REPR_TYPE_SIMPLE) {
             jsValue = Nan::New(field.v_simple);
         } else if (field.type == SOL_OIC_REPR_TYPE_TEXT_STRING) {

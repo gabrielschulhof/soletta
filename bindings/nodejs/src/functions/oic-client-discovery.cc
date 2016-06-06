@@ -90,7 +90,7 @@ NAN_METHOD(bind_sol_oic_client_find_resources) {
 
 	OIC_CLIENT_API_CALL(info, 0, 4, sol_oic_client_find_resources, &theAddress,
 		(const char *)*String::Utf8Value(info[2]),
-    	(const char *)*String::Utf8Value(info[3]), resourceFound);
+		(const char *)*String::Utf8Value(info[3]), resourceFound);
 }
 
 NAN_METHOD(bind_sol_oic_pending_cancel) {
