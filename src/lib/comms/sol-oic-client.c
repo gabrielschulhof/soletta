@@ -66,10 +66,21 @@
         return __VA_ARGS__; \
     }
 
+#define OIC_CALLBACK(context) \
+    for (struct ctx *call_once_ctx = ((struct ctx *)(context)); call_once_ctx; ({ \
+        if (call_once_ctx->client->reentrant.delete_me) { \
+            sol_oic_client_del(call_once_ctx->client); \
+        } \
+        call_once_ctx = NULL; \
+    })) \
+        SOL_REENTRANT_CALL(call_once_ctx->reentrant) \
+            SOL_REENTRANT_CALL(call_once_ctx->client->reentrant)
+
 struct sol_oic_client {
     struct sol_coap_server *server;
     struct sol_coap_server *dtls_server;
     struct sol_oic_security *security;
+    struct sol_reentrant reentrant;
 };
 
 struct ctx {
@@ -409,7 +420,7 @@ _platform_info_reply_cb(void *data, struct sol_coap_server *server,
     if (_parse_platform_info_payload(&info, sol_buffer_at(buf, offset),
         buf->used - offset)) {
         SOL_SET_API_VERSION(info.api_version = SOL_OIC_PLATFORM_INFO_API_VERSION; )
-        SOL_REENTRANT_CALL(ctx->base.reentrant) {
+        OIC_CALLBACK(ctx) {
             ctx->cb((void *)ctx->base.data, ctx->base.client, &info);
         }
     } else {
@@ -431,7 +442,7 @@ _platform_info_reply_cb(void *data, struct sol_coap_server *server,
     goto free_ctx;
 
 error:
-    SOL_REENTRANT_CALL(ctx->base.reentrant) {
+    OIC_CALLBACK(ctx) {
         ctx->cb((void *)ctx->base.data, ctx->base.client, NULL);
     }
 free_ctx:
@@ -478,7 +489,7 @@ _server_info_reply_cb(void *data, struct sol_coap_server *server,
         SOL_SET_API_VERSION(info.api_version = SOL_OIC_DEVICE_INFO_API_VERSION; )
         cb = (void (*)(void *data, struct sol_oic_client *cli,
             const struct sol_oic_device_info *info))ctx->cb;
-        SOL_REENTRANT_CALL(ctx->base.reentrant) {
+        OIC_CALLBACK(ctx) {
             cb((void *)ctx->base.data, ctx->base.client, &info);
         }
     } else {
@@ -493,7 +504,7 @@ _server_info_reply_cb(void *data, struct sol_coap_server *server,
     goto free_ctx;
 
 error:
-    SOL_REENTRANT_CALL(ctx->base.reentrant) {
+    OIC_CALLBACK(ctx) {
         ctx->cb((void *)ctx->base.data, ctx->base.client, NULL);
     }
 free_ctx:
@@ -815,7 +826,7 @@ _iterate_over_resource_reply_payload(struct sol_coap_packet *req,
             if (!device_id_ptr->data)
                 goto error;
             device_id_ptr->len = device_id.used;
-            SOL_REENTRANT_CALL((*(struct sol_reentrant *)(&(ctx->base.reentrant)))) {
+            OIC_CALLBACK(ctx) {
                 discovery_callback_result =
                     ctx->cb((void *)ctx->base.data, ctx->base.client,
                     (struct sol_oic_resource *)res);
@@ -859,7 +870,7 @@ _find_resource_reply_cb(void *data, struct sol_coap_server *server,
     if (!req || !addr) {
         bool discovery_callback_result;
 
-        SOL_REENTRANT_CALL(ctx->base.reentrant) {
+        OIC_CALLBACK(ctx) {
             discovery_callback_result =
                 ctx->cb((void *)ctx->base.data, ctx->base.client, NULL);
         }
@@ -994,7 +1005,7 @@ _resource_request_cb(void *data, struct sol_coap_server *server,
     if (!ctx->cb)
         return false;
     if (!req || !addr) {
-        SOL_REENTRANT_CALL(ctx->base.reentrant) {
+        OIC_CALLBACK(ctx) {
             ctx->cb((void *)ctx->base.data, SOL_COAP_CODE_EMPTY,
                 ctx->base.client, NULL, NULL);
         }
@@ -1021,7 +1032,7 @@ _resource_request_cb(void *data, struct sol_coap_server *server,
 
 empty_payload:
     sol_coap_header_get_code(req, &code);
-    SOL_REENTRANT_CALL(ctx->base.reentrant) {
+    OIC_CALLBACK(ctx) {
         ctx->cb((void *)ctx->base.data, code, ctx->base.client, addr,
             map_reader);
     }
@@ -1038,7 +1049,7 @@ _one_shot_resource_request_cb(void *data, struct sol_coap_server *server,
     if (req && addr)
         _resource_request_cb(data, server, req, addr);
     else {
-        SOL_REENTRANT_CALL(ctx->base.reentrant) {
+        OIC_CALLBACK(ctx) {
             ctx->cb((void *)ctx->base.data, SOL_COAP_CODE_EMPTY,
                 ctx->base.client, NULL, NULL);
         }
@@ -1426,6 +1437,9 @@ sol_oic_client_new(void)
 
     SOL_NULL_CHECK_ERRNO(client, EINVAL, NULL);
 
+    client->reentrant.in_use = false;
+    client->reentrant.delete_me = false;
+
     client->server = sol_coap_server_new(&servaddr);
     if (!client->server) {
         r = -errno;
@@ -1460,8 +1474,8 @@ error_create_server:
     return NULL;
 }
 
-SOL_API void
-sol_oic_client_del(struct sol_oic_client *client)
+static void
+sol_oic_client_real_del(struct sol_oic_client *client)
 {
     SOL_NULL_CHECK(client);
 
@@ -1472,4 +1486,11 @@ sol_oic_client_del(struct sol_oic_client *client)
 
     sol_util_clear_memory_secure(client, sizeof(*client));
     free(client);
+}
+
+SOL_API void
+sol_oic_client_del(struct sol_oic_client *client) {
+    SOL_REENTRANT_FREE(client->reentrant) {
+        sol_oic_client_real_del(client);
+    }
 }
